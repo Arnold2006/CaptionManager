@@ -1,0 +1,1 @@
+ESRGAN slim model placeholder. Run npm run download-model with network to fetch real weights. App will fallback to sharp lanczos 2x if model missing.

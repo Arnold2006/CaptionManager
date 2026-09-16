@@ -1,0 +1,17 @@
+node_modules
+dist
+out
+release
+release2
+*.log
+.env
+CaptionManager_output_*
+.DS_Store
+Thumbs.db
+*.exe
+*.zip
+*.7z
+# Downloaded at install/first-launch, never commit (GitHub 100MB limit)
+*.gguf
+*.part
+bin/

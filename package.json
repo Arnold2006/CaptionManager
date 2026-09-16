@@ -1,0 +1,70 @@
+{
+  "name": "captionmanager",
+  "version": "0.1.0",
+  "description": "CaptionManager - thumbnail grid review + crop workspace + AI upscale batch processor + AI captioning (llama.cpp)",
+  "main": "electron/main.js",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "electron:dev": "concurrently --kill-others --names \"vite,electron\" \"vite\" \"wait-on --timeout 30000 http://localhost:5173 && electron .\"",
+    "electron": "electron .",
+    "download-vlm": "node scripts/download-vlm-model.mjs",
+    "download-llama": "node scripts/download-llama.mjs",
+    "setup-caption": "node scripts/download-llama.mjs && node scripts/download-vlm-model.mjs",
+    "dist": "vite build && electron-builder --win portable --x64",
+    "release:portable": "vite build && electron-builder --win portable --x64",
+    "postinstall": "electron-builder install-app-deps && node scripts/setup-caption.cjs"
+  },
+  "dependencies": {
+    "@huggingface/hub": "^2.16.3",
+    "onnxruntime-node": "^1.29.0",
+    "sharp": "^0.35.4",
+    "upscaler": "^1.0.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.3",
+    "concurrently": "^9.1.2",
+    "electron": "^44.3.0",
+    "electron-builder": "^26.15.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "vite": "^6.0.5",
+    "wait-on": "^8.0.1"
+  },
+  "build": {
+    "appId": "com.captionmanager.app",
+    "productName": "CaptionManager",
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json",
+      "models/**/*",
+      "!models/**/*.gguf",
+      "bin/**/*"
+    ],
+    "directories": {
+      "buildResources": "build",
+      "output": "out"
+    },
+    "asar": false,
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": false,
+      "forceCodeSigning": false
+    },
+    "portable": {
+      "artifactName": "CaptionManager-${version}-portable-${arch}.exe",
+      "requestExecutionLevel": "user"
+    }
+  }
+}

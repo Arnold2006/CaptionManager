@@ -1,0 +1,1 @@
+ONNX placeholder. App uses sharp fallback if missing.
