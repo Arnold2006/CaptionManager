@@ -531,13 +531,27 @@ async function sampleRegion(imagePath, meta, bbox, target) {
     left = 0; top = 0; width = w; height = h;
   }
   if (width < 4 || height < 4) return [];
-  const { data, info } = await sharp(imagePath).rotate()
+  let { data, info } = await sharp(imagePath).rotate()
     .extract({ left, top, width, height })
     .resize(target, target, { fit: 'fill' })
+    .toColorspace('srgb')
     .removeAlpha()
     .raw()
     .toBuffer({ resolveWithObject: true });
-  if (info.channels < 3) return [];
+  if (info.channels < 3) {
+    // Grayscale source: expand the single channel to RGB so the region's
+    // true tones are sampled instead of silently falling back.
+    if (info.channels === 1) {
+      const gray = data;
+      data = Buffer.alloc(gray.length * 3);
+      for (let i = 0; i < gray.length; i++) {
+        data[i * 3] = gray[i]; data[i * 3 + 1] = gray[i]; data[i * 3 + 2] = gray[i];
+      }
+      info = { ...info, channels: 3 };
+    } else {
+      return [];
+    }
+  }
   return topColorsFromPixels(data, 5);
 }
 

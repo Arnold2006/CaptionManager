@@ -226,11 +226,15 @@ export default function CaptionTab({ images, onOpenSettings }) {
           const sampled = await window.api.samplePalettes({ imagePath: imgPath, boxes });
           if (sampled) {
             const d = clone(res.data);
+            let nSampled = 0;
             d.compositional_deconstruction.elements.forEach((el, i) => {
-              if (sampled.palettes[i] && sampled.palettes[i].length) el.color_palette = sampled.palettes[i];
+              if (sampled.palettes[i] && sampled.palettes[i].length) {
+                el.color_palette = sampled.palettes[i];
+                nSampled++;
+              }
             });
             if (sampled.global && sampled.global.length) d.style_description.color_palette = sampled.global;
-            res = { ...res, data: d, prompt_compact: JSON.stringify(d) };
+            res = { ...res, data: d, prompt_compact: JSON.stringify(d), palettes_sampled: nSampled, palettes_total: boxes.length };
           }
         } catch (err) { console.error('palette sampling failed', imgPath, err); }
       }
@@ -780,6 +784,16 @@ export default function CaptionTab({ images, onOpenSettings }) {
                 {res[viewMode]?.steering_used && (
                   <span style={{ fontSize: 11, color: 'var(--accent)' }} title="This caption was generated with steering instructions active">
                     🎛 steered
+                  </span>
+                )}
+                {viewMode === 'ideogram' && res.ideogram?.palettes_total > 0 && (
+                  <span
+                    style={{ fontSize: 11, color: (res.ideogram.palettes_sampled > 0) ? 'var(--accent2)' : 'var(--danger)' }}
+                    title={(res.ideogram.palettes_sampled > 0)
+                      ? `Pixel-sampled palettes applied to ${res.ideogram.palettes_sampled}/${res.ideogram.palettes_total} boxes (rest kept AI colors)`
+                      : 'Pixel sampling found no colors — all palettes are the AI guesses. Check the image file.'}
+                  >
+                    🎨 {res.ideogram.palettes_sampled}/{res.ideogram.palettes_total} sampled
                   </span>
                 )}
               </div>
