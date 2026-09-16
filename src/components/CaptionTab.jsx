@@ -616,7 +616,7 @@ export default function CaptionTab({ images, onOpenSettings }) {
                               </div>
                             ))}
                           </div>
-                          <div className="cap-hint">Tip: drag the box on the image to move it, drag a corner to resize.</div>
+                          <div className="cap-hint">Tip: drag the box on the image to move it, drag a corner to resize. Ctrl+click cycles through stacked boxes.</div>
                         </div>
                         <div className="cap-field">
                           <label>Element color palette</label>

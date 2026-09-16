@@ -133,6 +133,18 @@ export default function BboxCanvas({ src, elements, selectedIdx, drawMode, onSel
   };
   const inRect = (p, r) => p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
 
+  // All box indices under a point, topmost first.
+  const hitStack = (p) => {
+    const out = [];
+    if (!size) return out;
+    for (let i = elements.length - 1; i >= 0; i--) {
+      const b = elements[i].bbox;
+      if (!Array.isArray(b) || b.every((v) => v === 0)) continue;
+      if (inRect(p, toScreen(b, size.w, size.h))) out.push(i);
+    }
+    return out;
+  };
+
   const hitTest = (p) => {
     if (!size) return {};
     // corner handles of selected box
@@ -144,11 +156,8 @@ export default function BboxCanvas({ src, elements, selectedIdx, drawMode, onSel
         if (Math.abs(p.x - cx) <= 8 && Math.abs(p.y - cy) <= 8) return { handle: key };
       }
     }
-    for (let i = elements.length - 1; i >= 0; i--) {
-      const b = elements[i].bbox;
-      if (!Array.isArray(b) || b.every((v) => v === 0)) continue;
-      if (inRect(p, toScreen(b, size.w, size.h))) return { index: i };
-    }
+    const stack = hitStack(p);
+    if (stack.length) return { index: stack[0] };
     return {};
   };
 
@@ -159,6 +168,18 @@ export default function BboxCanvas({ src, elements, selectedIdx, drawMode, onSel
       const { bx, by } = toBboxPt(p.x, p.y, size.w, size.h);
       dragRef.current = { kind: 'draw', startBx: bx, startBy: by };
       setPreview(null);
+      e.preventDefault();
+      return;
+    }
+    // Ctrl/Cmd+click cycles focus through stacked boxes under the cursor.
+    if (e.ctrlKey || e.metaKey) {
+      const stack = hitStack(p);
+      if (stack.length === 0) { cbRef.current.onSelect(null); return; }
+      const at = stack.indexOf(selectedIdx);
+      const next = stack[(at + 1) % stack.length];
+      cbRef.current.onSelect(next);
+      const { bx, by } = toBboxPt(p.x, p.y, size.w, size.h);
+      dragRef.current = { kind: 'move', idx: next, startBx: bx, startBy: by, orig: [...elements[next].bbox] };
       e.preventDefault();
       return;
     }
