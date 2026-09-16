@@ -2,6 +2,16 @@
 
 Electron + React desktop app for preparing image datasets: crop workspace with batch export, plus local AI captioning (Ideogram 4 structured captions and plain text) powered by llama.cpp running Uncensored Qwen3-VL.
 
+## Screenshots
+
+**Crop tab** — thumbnail grid, crop workspace with aspect locks, batch GO bar:
+
+![Crop tab](docs/screenshots/crop-tab.png)
+
+**Caption tab** — queue sidebar, image with bbox overlay, structured Ideogram 4 editor:
+
+![Caption tab](docs/screenshots/caption-tab.png)
+
 ## Tabs
 
 ### ✂️ Crop
