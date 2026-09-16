@@ -1,6 +1,6 @@
 # CaptionManager
 
-Electron + React desktop app for preparing image datasets: crop workspace with batch export, plus local AI captioning (Ideogram 4 structured captions and plain text) powered by llama.cpp running Qwen3-VL.
+Electron + React desktop app for preparing image datasets: crop workspace with batch export, plus local AI captioning (Ideogram 4 structured captions and plain text) powered by llama.cpp running Uncensored Qwen3-VL.
 
 ## Tabs
 
