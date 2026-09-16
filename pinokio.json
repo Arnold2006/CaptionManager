@@ -1,0 +1,6 @@
+{
+  "version": "7.0",
+  "title": "CaptionManager",
+  "description": "Crop workspace + AI image captioning (Ideogram 4 structured captions and plain text) powered by a local llama.cpp vision model.",
+  "icon": "icon.png"
+}
