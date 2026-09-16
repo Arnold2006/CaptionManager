@@ -3,6 +3,7 @@ import ThumbnailGrid from './components/ThumbnailGrid.jsx';
 import Workspace from './components/Workspace.jsx';
 import CaptionTab from './components/CaptionTab.jsx';
 import SettingsModal from './components/SettingsModal.jsx';
+import { useDialog } from './components/dialog.jsx';
 
 const ASPECTS = ['free','1:1','4:5','5:4','4:3','3:4','16:9','9:16','3:2','2:3'];
 
@@ -22,6 +23,7 @@ export default function App() {
   const [captionNotice, setCaptionNotice] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const fileInputRef = useRef(null);
+  const { alert: dlgAlert, confirm: dlgConfirm } = useDialog();
   const isElectron = !!(typeof window !== 'undefined' && window.api);
 
   const refreshList = useCallback(async (f) => {
@@ -37,14 +39,14 @@ export default function App() {
       if (list.length===0) setSelected(null);
     } catch (e) {
       console.error('listImages failed', e);
-      alert('Failed to list images: ' + e.message);
+      dlgAlert('Failed to list images: ' + e.message);
     }
   }, [selected]);
 
   // Fallback helper for browser-mode files
   const handleBrowserFiles = (fileList) => {
     const files = Array.from(fileList).filter(f => f.type.startsWith('image/'));
-    if (files.length===0) { alert('No images found in selection'); return; }
+    if (files.length===0) { dlgAlert('No images found in selection'); return; }
     const mapped = files.map((f, i) => ({
       path: `browser://${f.name}-${f.size}-${i}`,
       name: f.name,
@@ -96,7 +98,7 @@ export default function App() {
       if (f) { setFolder(f); setBatch({ running:false, progress:null, result:null }); refreshList(f); }
     } catch (e) {
       console.error('pickFolder error', e);
-      alert('Open Folder failed: ' + e.message);
+      dlgAlert('Open Folder failed: ' + e.message);
     }
   };
 
@@ -123,7 +125,7 @@ export default function App() {
     if (!rawPath) {
       const hasImages = files.some(f=>f.type.startsWith('image/'));
       if (hasImages) { handleBrowserFiles(files); return; }
-      alert('Could not resolve dropped path. Try Open Folder button.');
+      dlgAlert('Could not resolve dropped path. Try Open Folder button.');
       return;
     }
     // Use main process to check if path is file or directory
@@ -148,7 +150,7 @@ export default function App() {
   const onDelete = async (path) => {
     // browser fallback: just remove from list
     if (!window.api || path.startsWith('browser://')) {
-      if (!confirm(`Remove from list?\n${path}`)) return;
+      if (!(await dlgConfirm(`Remove from list?\n${path}`, { title: 'Remove image', okLabel: 'Remove' }))) return;
       const img = images.find(i=>i.path===path);
       if (img && img.blobUrl) URL.revokeObjectURL(img.blobUrl);
       setImages(prev=> prev.filter(i=>i.path!==path));
@@ -159,7 +161,7 @@ export default function App() {
       }
       return;
     }
-    if (!confirm(`Move to Recycle Bin?\n${path}`)) return;
+    if (!(await dlgConfirm(`Move to Recycle Bin?\n${path}`, { title: 'Delete image', okLabel: 'Delete', danger: true }))) return;
     const res = await window.api.deleteImage(path);
     if (res.success) {
       setImages(prev=> prev.filter(i=>i.path!==path));
@@ -168,7 +170,7 @@ export default function App() {
         const remaining = images.filter(i=>i.path!==path);
         return remaining[0]?.path || null;
       });
-    } else alert('Delete failed: '+res.error);
+    } else dlgAlert('Delete failed: '+res.error);
   };
 
   const currentSetting = settings[selected] || { crop: null, aspect:'free', upscaleEnabled:false };
@@ -266,12 +268,12 @@ export default function App() {
 
   const go = async () => {
     if (!window.api || (folder && folder.startsWith('Browser selection'))) {
-      alert('Batch GO (sharp/AI) requires Electron. Run: npm run electron:dev\nIn browser mode you can still preview crops, but processing needs the desktop app.');
+      dlgAlert('Batch GO (sharp/AI) requires Electron. Run: npm run electron:dev\nIn browser mode you can still preview crops, but processing needs the desktop app.');
       return;
     }
-    if (!folder || images.length===0) return alert('No images');
+    if (!folder || images.length===0) return dlgAlert('No images');
     if (Object.keys(settings).length===0 && !globalUpscale) {
-      if (!confirm('No crops set. Process all images with just format conversion and '+ (globalUpscale?'upscale':'no crop') +'?')) return;
+      if (!(await dlgConfirm('No crops set. Process all images with just format conversion and '+ (globalUpscale?'upscale':'no crop') + '?', { title: 'Process without crops', okLabel: 'Process all' }))) return;
     }
     const map = {};
     for (const img of images) {
@@ -289,7 +291,7 @@ export default function App() {
         setCaptionNotice(`${outImages.length} cropped image(s) ready in Caption tab`);
       } catch (e) { console.error('caption handoff list failed', e); }
     } catch (e) {
-      alert('Batch failed: '+e.message);
+      dlgAlert('Batch failed: '+e.message);
       setBatch({ running:false, progress:null, result:null });
     }
   };

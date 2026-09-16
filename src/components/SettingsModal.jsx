@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useDialog } from './dialog.jsx';
 
 // Settings modal: AI models folder picker + first-launch downloader.
 // The ~6GB GGUFs are NOT bundled with the portable exe; they live in the
@@ -6,6 +7,7 @@ import React, { useEffect, useState } from 'react';
 const gb = (n) => ((n || 0) / 1024 ** 3).toFixed(2) + ' GB';
 
 export default function SettingsModal({ open, onClose }) {
+  const { alert: dlgAlert } = useDialog();
   const [status, setStatus] = useState(null);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState({}); // file -> {received,total,done,skipped}
@@ -48,14 +50,14 @@ export default function SettingsModal({ open, onClose }) {
         await window.api.settingsSet({ modelsDir: r.path });
         refresh();
       }
-    } catch (e) { alert('Could not set folder: ' + e.message); }
+    } catch (e) { dlgAlert('Could not set folder: ' + e.message); }
   };
 
   const useDefault = async () => {
     try {
       await window.api.settingsSet({ modelsDir: '' });
       refresh();
-    } catch (e) { alert('Could not reset folder: ' + e.message); }
+    } catch (e) { dlgAlert('Could not reset folder: ' + e.message); }
   };
 
   const download = async () => {

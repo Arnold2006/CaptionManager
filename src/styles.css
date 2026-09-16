@@ -175,6 +175,13 @@ body { font-family: Inter, system-ui, Segoe UI, Roboto, sans-serif; background: 
   .cap-editor { overflow:visible; flex:none; }
 }
 
+/* ---- Native-dialog replacement ---- */
+.dlg-overlay { position:fixed; inset:0; z-index:1100; background:rgba(0,0,0,0.55); display:flex; align-items:center; justify-content:center; }
+.dlg-modal { background:var(--panel); border:1px solid var(--border); border-radius:12px; width:440px; max-width:92vw; box-shadow:0 16px 48px rgba(0,0,0,0.5); }
+.dlg-hdr { padding:12px 18px; border-bottom:1px solid var(--border); font-weight:700; font-size:14px; }
+.dlg-body { padding:16px 18px; font-size:13px; line-height:1.6; white-space:pre-line; word-break:break-word; }
+.dlg-ftr { display:flex; justify-content:flex-end; gap:8px; padding:12px 18px; border-top:1px solid var(--border); }
+
 /* ---- Steering modal ---- */
 .cap-steer-overlay { position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; }
 .cap-steer-modal { background:var(--panel); border:1px solid var(--border); border-radius:12px; width:520px; max-width:92vw; box-shadow:0 16px 48px rgba(0,0,0,0.4); }

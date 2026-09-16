@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import BboxCanvas from './BboxCanvas.jsx';
+import { useDialog } from './dialog.jsx';
 
 // Caption tab: 3-column Ideogram editor (queue | image + bbox overlay | text editor),
 // matching the Ideo4-Dataset-Manager layout. Plain text and Minimax H3 modes
@@ -34,6 +35,7 @@ function emptyIdeogram() {
 }
 
 export default function CaptionTab({ images, onOpenSettings }) {
+  const { alert: dlgAlert } = useDialog();
   const [batchScope, setBatchScope] = useState('all');
   const [viewMode, setViewMode] = useState('ideogram');
   const [instructions, setInstructions] = useState(() => loadSteering());
@@ -248,15 +250,15 @@ export default function CaptionTab({ images, onOpenSettings }) {
   };
 
   const generateAll = async () => {
-    if (!isElectron) { alert('Captioning requires Electron (llama.cpp). Run: npm run electron:dev'); return; }
-    if (images.length === 0) { alert('No images in caption queue. Run Crop → GO first.'); return; }
+    if (!isElectron) { dlgAlert('Captioning requires Electron (llama.cpp). Run: npm run electron:dev'); return; }
+    if (images.length === 0) { dlgAlert('No images in caption queue. Run Crop → GO first.'); return; }
     if (!(await ensureReady())) return;
     cancelRef.current = false;
     setRunning(true);
     try { await ensureServer(); }
     catch (e) {
       if (/missing|not found/i.test(e.message)) { if (onOpenSettings) onOpenSettings(); }
-      else alert('Model server failed: ' + e.message);
+      else dlgAlert('Model server failed: ' + e.message);
       setRunning(false);
       return;
     }
@@ -335,8 +337,8 @@ export default function CaptionTab({ images, onOpenSettings }) {
       const { palettes } = await window.api.samplePalettes({ imagePath: selected.path, boxes: [el.bbox] });
       if (palettes[0] && palettes[0].length) {
         patchIdeogram((d) => { d.compositional_deconstruction.elements[idx].color_palette = palettes[0]; });
-      } else alert('Could not sample colors for this box (box too small?).');
-    } catch (err) { alert('Color sampling failed: ' + err.message); }
+      } else dlgAlert('Could not sample colors for this box (box too small?).');
+    } catch (err) { dlgAlert('Color sampling failed: ' + err.message); }
   };
 
   const sampleGlobalPalette = async () => {
@@ -345,8 +347,8 @@ export default function CaptionTab({ images, onOpenSettings }) {
       const { global } = await window.api.samplePalettes({ imagePath: selected.path, boxes: [] });
       if (global && global.length) {
         patchIdeogram((d) => { d.style_description.color_palette = global; });
-      } else alert('Could not sample colors from this image.');
-    } catch (err) { alert('Color sampling failed: ' + err.message); }
+      } else dlgAlert('Could not sample colors from this image.');
+    } catch (err) { dlgAlert('Color sampling failed: ' + err.message); }
   };
 
   // ---------- save ----------
@@ -357,18 +359,18 @@ export default function CaptionTab({ images, onOpenSettings }) {
     try {
       if (viewMode === 'ideogram') {
         const data = e.ideogramData || r.ideogram?.data;
-        if (!data) return alert('Nothing to save — generate a caption first.');
+        if (!data) return dlgAlert('Nothing to save — generate a caption first.');
         const s = await window.api.saveCaption({ imagePath: selected.path, mode: 'ideogram', content: data });
         setEdits((prev) => ({ ...prev, [selected.path]: { ...(prev[selected.path] || {}), dirty: false } }));
-        alert('Saved ' + s.path);
+        dlgAlert('Saved ' + s.path);
       } else {
         const text = e.plainText ?? r.plain?.text;
-        if (!text) return alert('Nothing to save — generate a caption first.');
+        if (!text) return dlgAlert('Nothing to save — generate a caption first.');
         const s = await window.api.saveCaption({ imagePath: selected.path, mode: viewMode, content: text });
         setEdits((prev) => ({ ...prev, [selected.path]: { ...(prev[selected.path] || {}), dirty: false } }));
-        alert('Saved ' + s.path);
+        dlgAlert('Saved ' + s.path);
       }
-    } catch (err) { alert('Save failed: ' + err.message); }
+    } catch (err) { dlgAlert('Save failed: ' + err.message); }
   };
 
   const saveAll = async () => {
@@ -396,7 +398,7 @@ export default function CaptionTab({ images, onOpenSettings }) {
       for (const k of Object.keys(next)) next[k] = { ...next[k], dirty: false };
       return next;
     });
-    alert(saved > 0 ? `Saved ${saved} caption file(s) next to images.` : 'Nothing to save yet — generate captions first.');
+    dlgAlert(saved > 0 ? `Saved ${saved} caption file(s) next to images.` : 'Nothing to save yet — generate captions first.');
   };
 
   // ---------- nav / keyboard ----------
