@@ -306,7 +306,15 @@ export default function CaptionTab({ images, onOpenSettings }) {
 
   const selectElement = (i) => {
     setSelElIdx(i);
-    if (i !== null) setOpenEls((prev) => ({ ...prev, [i]: true }));
+    if (i === null) return;
+    // Make sure the card is rendered: open the Elements section + the card,
+    // then scroll it into view inside the editor column.
+    setOpenSections((prev) => (prev.elements ? prev : { ...prev, elements: true }));
+    setOpenEls((prev) => (prev[i] ? prev : { ...prev, [i]: true }));
+    setTimeout(() => {
+      const card = document.getElementById('cap-el-' + i);
+      if (card) card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }, 60);
   };
   const onBboxChange = (idx, bbox) => {
     patchIdeogram((d) => { d.compositional_deconstruction.elements[idx].bbox = bbox; });
