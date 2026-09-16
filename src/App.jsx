@@ -304,25 +304,31 @@ export default function App() {
       {/* hidden input for browser fallback */}
       <input ref={fileInputRef} type="file" multiple accept="image/*" webkitdirectory="" directory="" style={{display:'none'}} onChange={e=>{ if(e.target.files) handleBrowserFiles(e.target.files); e.target.value=''; }} />
       <div className="topbar">
-        <button className="btn btn-primary" onClick={pickFolder}>📁 Open Folder</button>
+        {activeTab === 'crop' && (
+          <button className="btn btn-primary" onClick={pickFolder}>📁 Open Folder</button>
+        )}
         <div style={{display:'flex', gap:6}} role="tablist" aria-label="Tool tabs">
           <button className={`aspect-btn ${activeTab==='crop'?'active':''}`} role="tab" aria-selected={activeTab==='crop'} onClick={()=>setActiveTab('crop')}>✂️ Crop</button>
           <button className={`aspect-btn ${activeTab==='caption'?'active':''}`} role="tab" aria-selected={activeTab==='caption'} onClick={()=>setActiveTab('caption')}>💬 Caption{captionImages.length>0?` (${captionImages.length})`:''}</button>
         </div>
-        <div className="folder-path" title={folder||'No folder selected'}>{folder || 'No folder selected — drag & drop a folder here'} {!isElectron && <span style={{color:'var(--accent)', fontWeight:600}}> (Browser mode — use folder picker)</span>}</div>
-        <div className="toolbar-group">
-          <span className="toolbar-label">Format (forced)</span>
-          <select className="select" value={globalFormat} onChange={e=>setGlobalFormat(e.target.value)}>
-            <option value="jpg">JPG</option>
-            <option value="png">PNG</option>
-            <option value="tif">TIF</option>
-            <option value="webp">WEBP</option>
-          </select>
-        </div>
-        <label className="checkbox" title="Global 2× upscale (AI, fallback to lanczos)">
-          <input type="checkbox" checked={globalUpscale} onChange={e=>setGlobalUpscale(e.target.checked)} /> 2× Upscale (all)
-        </label>
-        {images.length>0 && <span style={{fontSize:12, color:'var(--muted)'}}>{images.length} images · {countCropped} cropped · {countUpscaled} upscaled</span>}
+        {activeTab === 'crop' && (
+          <>
+            <div className="folder-path" title={folder||'No folder selected'}>{folder || 'No folder selected — drag & drop a folder here'} {!isElectron && <span style={{color:'var(--accent)', fontWeight:600}}> (Browser mode — use folder picker)</span>}</div>
+            <div className="toolbar-group">
+              <span className="toolbar-label">Format (forced)</span>
+              <select className="select" value={globalFormat} onChange={e=>setGlobalFormat(e.target.value)}>
+                <option value="jpg">JPG</option>
+                <option value="png">PNG</option>
+                <option value="tif">TIF</option>
+                <option value="webp">WEBP</option>
+              </select>
+            </div>
+            <label className="checkbox" title="Global 2× upscale (AI, fallback to lanczos)">
+              <input type="checkbox" checked={globalUpscale} onChange={e=>setGlobalUpscale(e.target.checked)} /> 2× Upscale (all)
+            </label>
+            {images.length>0 && <span style={{fontSize:12, color:'var(--muted)'}}>{images.length} images · {countCropped} cropped · {countUpscaled} upscaled</span>}
+          </>
+        )}
         <button className="btn btn-ghost" onClick={()=>setSettingsOpen(true)} title="Settings — AI models folder and downloads">⚙</button>
       </div>
 
