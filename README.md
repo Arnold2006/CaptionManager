@@ -1,57 +1,60 @@
 # CaptionManager
 
-Node.js + Electron app: thumbnail grid (left) for review, large workspace (right) with draggable/resizable crop box. Per-image crop/aspect/upscale settings are remembered until big **GO** batches processing. Output saved to subfolder under source.
+Electron + React desktop app for preparing image datasets: crop workspace with batch export, plus local AI captioning (Ideogram 4 structured captions and plain text) powered by llama.cpp running Qwen3-VL.
 
-## Features
-- **Left grid**: loads folder of images (jpg/jpeg/png/tif/tiff/webp/bmp/avif) into 3-col thumbnail grid. Click to focus. Hover `×` to **move to Recycle Bin** (`shell.trashItem`).
-- **Right workspace**: large view with zoom slider. Draggable/resizable **crop box** (8 handles) with aspect locks: `free, 1:1, 4:5, 5:4, 4:3, 3:4, 16:9, 9:16, 3:2, 2:3`. Normalized coords per image.
-- **Settings memory**: each image keeps `{crop, aspect, upscaleEnabled}` in `Map`. Switching focus restores box.
-- **Upscale**: global `2×` toggle (all) + per-image `2×` toggle. AI path tries `@upscaler/node`/`upscaler` with ESRGAN if installed, else falls back to **sharp lanczos3 2×** (high-quality, local, no network).
-- **Forced format**: global `jpg/png/tif/webp` applied to all on export.
-- **GO**: batches `crop → upscale → convert` via `sharp` into `<source>/CaptionManager_output_<ISOtimestamp>/`. Progress bar + open-output button.
+## Tabs
 
-## Tech
-- **Electron 33** (main/preload IPC)
-- **sharp 0.33** (libvips) for thumbs, crop, resize, convert, tiff
-- **Vite + React 18** frontend
+### ✂️ Crop
+- **Left grid**: load a folder of images (jpg/jpeg/png/tif/tiff/webp/bmp/avif) into a thumbnail grid. Click to focus, hover `×` to move to Recycle Bin.
+- **Workspace**: large view with zoom slider and draggable/resizable crop box (8 handles) with aspect locks (`free, 1:1, 4:5, 5:4, 4:3, 3:4, 16:9, 9:16, 3:2, 2:3`).
+- **Settings memory**: each image keeps `{crop, aspect, upscaleEnabled}` until GO.
+- **Upscale**: global `2×` toggle (all) + per-image `2×` toggle (AI ESRGAN when available, else sharp lanczos3).
+- **Forced format**: global `jpg/png/tif/webp` applied on export.
+- **GO**: batches `crop → upscale → convert` via sharp into `<source>/CaptionManager_output_<ISOtimestamp>/`, with progress bar + open-output button. Finished outputs are handed to the Caption tab automatically.
+
+### 💬 Caption
+- **Queue sidebar**: cropped outputs appear here after every GO, with status dots (done / failed / new).
+- **Ideogram 4 editor** (3 columns: queue | image + bbox overlay | text editor):
+  - Bbox canvas overlay — click to select, drag to move, corner-drag to resize, **Ctrl+click to cycle stacked boxes**, draw-new-box modes for objects and text.
+  - Structured editor — Overview, Style (aesthetics, lighting, medium, photo/art toggle, palettes), Composition, Elements (desc, exact text, bbox inputs, per-element palettes).
+  - **Palettes are sampled from real pixels** per bbox region after every generation (plus manual 🎨 re-sample buttons), so skin tones and clothing colors are truthful.
+- **Plain-text mode**: single-paragraph captions with a simple text editor.
+- **Steering modal** (🎛): instructions appended to the system prompt for every caption (e.g. prefix `high_level_description`); prefix requests are also enforced deterministically.
+- **Autosave**: captions save on generate, on edit (debounced), and when switching images (`.json` / `.txt` sidecars next to the image).
+- **Batch**: Caption all / Save all across the queue.
+
+## AI backend (llama.cpp, local)
+
+- Model: `Huihui-Qwen3-VL-8B-Instruct-abliterated-Q4_K_M.gguf` + `mmproj-F16.gguf` (spawned `llama-server`, persistent daemon, GPU layers on).
+- **GGUFs are NOT bundled** with the portable exe — download at first launch.
+- **Settings modal** (⚙): point to a folder containing the models, or download them in-app with progress (~6 GB). Resolution order: chosen folder → bundled `models/` (dev) → app-data folder. Starting a caption with missing models opens Settings automatically.
 
 ## Scripts
+
 ```bash
-npm install          # installs sharp + electron
-npm run dev          # vite only (browser preview, no Electron APIs)
+npm install          # deps + native rebuild + llama bin + VLM models (postinstall)
 npm run electron:dev # vite + electron (recommended dev)
 npm run electron     # electron with built dist (needs npm run build first)
 npm run build        # vite build → dist/
-npm run dist         # build + electron-builder → installer (win nsis)
+npm run dist         # build + electron-builder → portable exe (win x64, models excluded)
+npm run setup-caption    # (re)download llama-server bin + VLM models
+npm run download-vlm     # VLM models only (progress bar, skip-if-complete)
+npm run download-llama   # llama.cpp binaries only
 ```
 
-## Usage
-1. `npm install`
-2. `npm run electron:dev` (or `npm run build` then `npm run electron`)
-3. Click **Open Folder** or drag-drop folder onto window
-4. Click thumb to focus, **Enable Crop**, drag/resize box, pick aspect, toggle per-image 2× if needed
-5. Set global **Format** and global **2× Upscale** if desired
-6. Press **GO** — check `CaptionManager_output_...` under source
+## Pinokio
 
-## AI Upscale Note
-Pure-JS AI upscale is optional. Install for true ESRGAN:
-```bash
-npm install upscaler @upscaler/node onnxruntime-node
-# place ESRGAN model in ./models/ (download esrgan-slim 2x)
-```
-Without it, GO uses sharp's lanczos 2× (still local, fast, no Python).
+Ships as a Pinokio 8 app (`pinokio.js`, `install.js`, `start.js`, `update.js`, `reset.js`, `icon.png`): install from `https://github.com/Arnold2006/CaptionManager.git`, Install (npm + models + build), Start launches the Electron window.
 
-## Packaging
-```bash
-npm run dist
-# output in dist/ and release installer
-```
+## Project layout
 
-## Project Layout
 ```
-electron/main.js, preload.js  # IPC: select-folder, list-images, thumbnails, trash, batch
-src/App.jsx                   # layout + settings map + GO
-src/components/ThumbnailGrid  # virtualized grid + delete
-src/components/Workspace + CropBox # large view + draggable box
-vite.config.js, index.html
+electron/         # main, preload, splash — IPC, batch pipeline, caption engine,
+                  # palette sampling, settings store, model downloader
+src/App.jsx       # Crop/Caption tabs + handoff + settings modal host
+src/components/   # ThumbnailGrid, Workspace, CropBox, BboxCanvas,
+                  # CaptionTab (3-col editor), SettingsModal, AutoTextarea, dialog
+scripts/          # model/llama-server download helpers
+models/           # local models (gitignored: *.gguf) + esrgan placeholder
+bin/              # llama-server binaries (gitignored, bundled in portable)
 ```
