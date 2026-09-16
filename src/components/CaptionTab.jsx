@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import BboxCanvas from './BboxCanvas.jsx';
+import AutoTextarea from './AutoTextarea.jsx';
 import { useDialog } from './dialog.jsx';
 
 // Caption tab: 3-column Ideogram editor (queue | image + bbox overlay | text editor),
@@ -481,7 +482,7 @@ export default function CaptionTab({ images, onOpenSettings }) {
             <div className="cap-sec-body">
               <div className="cap-field">
                 <label>High-level description</label>
-                <textarea rows="3" value={ideogramData.high_level_description || ''}
+                <AutoTextarea rows="3" value={ideogramData.high_level_description || ''}
                   onChange={(e) => patchIdeogram((d) => { d.high_level_description = e.target.value; })}
                   placeholder="A one or two-sentence summary of the full image…" />
               </div>
@@ -498,12 +499,12 @@ export default function CaptionTab({ images, onOpenSettings }) {
             <div className="cap-sec-body">
               <div className="cap-field">
                 <label>Aesthetics</label>
-                <textarea rows="2" value={sd.aesthetics || ''}
+                <AutoTextarea rows="2" value={sd.aesthetics || ''}
                   onChange={(e) => patchIdeogram((d) => { d.style_description.aesthetics = e.target.value; })} />
               </div>
               <div className="cap-field">
                 <label>Lighting</label>
-                <textarea rows="2" value={sd.lighting || ''}
+                <AutoTextarea rows="2" value={sd.lighting || ''}
                   onChange={(e) => patchIdeogram((d) => { d.style_description.lighting = e.target.value; })} />
               </div>
               <div className="cap-field">
@@ -556,7 +557,7 @@ export default function CaptionTab({ images, onOpenSettings }) {
             <div className="cap-sec-body">
               <div className="cap-field">
                 <label>Background</label>
-                <textarea rows="2" value={cd.background || ''}
+                <AutoTextarea rows="2" value={cd.background || ''}
                   onChange={(e) => patchIdeogram((d) => { d.compositional_deconstruction.background = e.target.value; })} />
               </div>
             </div>
@@ -594,7 +595,7 @@ export default function CaptionTab({ images, onOpenSettings }) {
                       <div className="cap-el-body">
                         <div className="cap-field">
                           <label>Description</label>
-                          <textarea rows="3" value={el.desc || ''}
+                          <AutoTextarea rows="3" value={el.desc || ''}
                             onChange={(e) => patchIdeogram((d) => { d.compositional_deconstruction.elements[i].desc = e.target.value; })} />
                         </div>
                         {el.type === 'text' && (
@@ -668,7 +669,7 @@ export default function CaptionTab({ images, onOpenSettings }) {
         <div className="cap-sec-hdr"><span className="cap-sec-label">Plain-text caption</span></div>
         <div className="cap-sec-body">
           <div className="cap-field">
-            <textarea rows={10} style={{ fontFamily: 'inherit' }}
+            <AutoTextarea rows={10} style={{ fontFamily: 'inherit' }}
               value={res.plain_running ? 'Captioning…' : value}
               readOnly={!!res.plain_running}
               onChange={(e) => patchText('plainText', e.target.value)} />
@@ -821,7 +822,7 @@ export default function CaptionTab({ images, onOpenSettings }) {
                 <li>Consistency: <em>"Always mention the person is a young woman with short dark hair"</em></li>
               </ul>
               <label>Steering instructions</label>
-              <textarea rows="5" value={instructions} onChange={(e) => onSteerInput(e.target.value)}
+              <AutoTextarea rows="5" value={instructions} onChange={(e) => onSteerInput(e.target.value)}
                 placeholder='e.g. Add the word "Sarah" as a prefix to high_level_description' />
               <div className="cap-hint">Leave empty for no steering. Applies to both single and batch captions. Saving happens automatically.</div>
             </div>
