@@ -24,11 +24,11 @@ Electron + React desktop app for preparing image datasets: crop workspace with b
 - **GO**: batches `rotate → crop → upscale → convert` via sharp into `<source>/CaptionManager_output_<ISOtimestamp>/`, with progress bar + open-output button. Finished outputs are handed to the Caption tab automatically.
 
 ### 💬 Caption
-- **Queue sidebar**: cropped outputs appear here after every GO, with status dots (done / failed / new).
+- **Queue sidebar**: cropped outputs appear here after every GO, with status dots (done / failed / new). **Load Folder** fills the queue directly from any folder with cropped images — no trip through the Crop tab needed.
 - **Ideogram 4 editor** (3 columns: queue | image + bbox overlay | text editor):
-  - Bbox canvas overlay — click to select, drag to move, corner-drag to resize, **Ctrl+click to cycle stacked boxes**, draw-new-box modes for objects and text.
-  - Structured editor — Overview, Style (aesthetics, lighting, medium, photo/art toggle, palettes), Composition, Elements (desc, exact text, bbox inputs, per-element palettes).
-  - **Palettes are sampled from real pixels** per bbox region after every generation (plus manual 🎨 re-sample buttons), so skin tones and clothing colors are truthful.
+  - Bbox canvas overlay — click to select, drag to move, corner-drag to resize, **Ctrl+click to cycle stacked boxes**, draw-new-box modes for objects and text. Clicking a box scrolls its element card into view.
+  - Structured editor — Overview, Style (aesthetics, lighting, medium, photo/art toggle, palettes), Composition, Elements (desc, exact text, bbox inputs, per-element palettes). All text fields auto-grow to fit their content.
+  - **Palettes are sampled from real pixels** per bbox region after every generation (plus manual 🎨 re-sample buttons), so skin tones and clothing colors are truthful. Each caption shows a `🎨 n/m sampled` tag proving which boxes got measured colors.
 - **Plain-text mode**: single-paragraph captions with a simple text editor.
 - **Steering modal** (🎛): instructions appended to the system prompt for every caption (e.g. prefix `high_level_description`); prefix requests are also enforced deterministically.
 - **Autosave**: captions save on generate, on edit (debounced), and when switching images (`.json` / `.txt` sidecars next to the image).
@@ -39,6 +39,11 @@ Electron + React desktop app for preparing image datasets: crop workspace with b
 - Model: `Huihui-Qwen3-VL-8B-Instruct-abliterated-Q4_K_M.gguf` + `mmproj-F16.gguf` (spawned `llama-server`, persistent daemon, GPU layers on).
 - **GGUFs are NOT bundled** with the portable exe — download at first launch.
 - **Settings modal** (⚙): point to a folder containing the models, or download them in-app with progress (~6 GB). Resolution order: chosen folder → bundled `models/` (dev) → app-data folder. Starting a caption with missing models opens Settings automatically.
+
+## Updates
+
+- At startup the app compares its version against `package.json` on GitHub `main` and shows an **Update available** dialog with a direct link to the releases page when newer. Silent when up to date or offline.
+- Settings modal has a **Check for updates at startup** toggle (on by default) plus a **Check now** button.
 
 ## Scripts
 
