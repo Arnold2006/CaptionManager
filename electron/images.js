@@ -18,7 +18,9 @@ const SUPPORTED_EXTS = new Set(['.jpg', '.jpeg', '.png', '.tif', '.tiff', '.webp
 
 // ---- pure helpers (unit-tested) ----
 function normalizeAngle(rotation) {
-  return ((Number(rotation) % 360) + 360) % 360;
+  const n = Number(rotation);
+  if (!Number.isFinite(n)) return 0;
+  return ((n % 360) + 360) % 360;
 }
 
 // Normalized {x,y,w,h} crop against {width,height} dims -> pixel rect or null

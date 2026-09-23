@@ -7,27 +7,29 @@ const path = require('path');
 
 const { MODEL_FILE, MMPROJ_FILE } = require('./modelInfo');
 
-function settingsPath() {
-  return path.join(app.getPath('userData'), 'captionmanager-settings.json');
+function settingsPath(appOverride) {
+  const a = appOverride || app;
+  return path.join(a.getPath('userData'), 'captionmanager-settings.json');
 }
 
-function load() {
+function load(appOverride) {
   try {
-    return JSON.parse(fs.readFileSync(settingsPath(), 'utf8'));
+    return JSON.parse(fs.readFileSync(settingsPath(appOverride), 'utf8'));
   } catch (_) {
     return {};
   }
 }
 
-function save(patch) {
-  const next = { ...load(), ...patch };
-  fs.mkdirSync(path.dirname(settingsPath()), { recursive: true });
-  fs.writeFileSync(settingsPath(), JSON.stringify(next, null, 2), 'utf8');
+function save(patch, appOverride) {
+  const next = { ...load(appOverride), ...patch };
+  const p = settingsPath(appOverride);
+  fs.mkdirSync(path.dirname(p), { recursive: true });
+  fs.writeFileSync(p, JSON.stringify(next, null, 2), 'utf8');
   return next;
 }
 
-function get() {
-  return load();
+function get(appOverride) {
+  return load(appOverride);
 }
 
 // Repo/app-bundled models dir (dev checkout; absent in portable builds).
@@ -46,12 +48,14 @@ function hasCompleteModels(dir) {
 
 // Effective models dir: explicit user choice first, then a bundled dir that
 // already has complete models (dev machines), else userData/models.
-function resolveModelsDir() {
-  const custom = (load().modelsDir || '').trim();
+// appOverride is a dependency-injection hook for tests.
+function resolveModelsDir(appOverride) {
+  const custom = (load(appOverride).modelsDir || '').trim();
   if (custom) return { dir: custom, source: 'custom' };
   const bundled = bundledModelsDir();
   if (hasCompleteModels(bundled)) return { dir: bundled, source: 'bundled' };
-  return { dir: path.join(app.getPath('userData'), 'models'), source: 'userdata' };
+  const a = appOverride || app;
+  return { dir: path.join(a.getPath('userData'), 'models'), source: 'userdata' };
 }
 
 function describeModelsDir(dir) {
