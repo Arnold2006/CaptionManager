@@ -87,6 +87,19 @@ export default function App() {
     return off;
   }, []);
 
+  useEffect(() => {
+    if (!window.api?.onUpdateAvailable) return;
+    const off = window.api.onUpdateAvailable(async (info) => {
+      if (!info?.available) return;
+      const open = await dlgConfirm(
+        `CaptionManager v${info.version} is available.\nOpen the download page to get it?`,
+        { title: 'Update available', okLabel: 'Open download page', cancelLabel: 'Later' }
+      );
+      if (open) window.api.openPath(info.url);
+    });
+    return off;
+  }, []);
+
   const pickFolder = async () => {
     if (!window.api) {
       // browser fallback: trigger hidden file input

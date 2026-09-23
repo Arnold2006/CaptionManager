@@ -7,16 +7,23 @@ import { useDialog } from './dialog.jsx';
 const gb = (n) => ((n || 0) / 1024 ** 3).toFixed(2) + ' GB';
 
 export default function SettingsModal({ open, onClose }) {
-  const { alert: dlgAlert } = useDialog();
+  const { alert: dlgAlert, confirm: dlgConfirm } = useDialog();
   const [status, setStatus] = useState(null);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState({}); // file -> {received,total,done,skipped}
   const [finished, setFinished] = useState(false);
   const [error, setError] = useState(null);
+  const [updateCheck, setUpdateCheck] = useState(true);
+  const [updateMsg, setUpdateMsg] = useState(null);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
 
   const refresh = async () => {
     if (!window.api?.modelsStatus) return;
     try { setStatus(await window.api.modelsStatus()); } catch (e) { console.error(e); }
+    try {
+      const s = await window.api.settingsGet();
+      setUpdateCheck(s.updateCheck !== false);
+    } catch (e) { console.error(e); }
   };
 
   useEffect(() => {
@@ -126,6 +133,44 @@ export default function SettingsModal({ open, onClose }) {
 
           {error && <div style={{ color: 'var(--danger)', fontSize: 12 }}>{error}</div>}
           {finished && <div style={{ color: 'var(--accent2)', fontSize: 12 }}>✓ Models ready — you can close this and start captioning.</div>}
+
+          <div>
+            <label className="checkbox" style={{ marginBottom: 6 }}>
+              <input
+                type="checkbox" checked={updateCheck}
+                onChange={async (e) => {
+                  setUpdateCheck(e.target.checked);
+                  try { await window.api.settingsSet({ updateCheck: e.target.checked }); } catch (err) { console.error(err); }
+                }}
+              /> Check for updates at startup
+            </label>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <button
+                className="btn" style={{ fontSize: 12, padding: '5px 12px' }}
+                disabled={checkingUpdate} onClick={async () => {
+                  setCheckingUpdate(true);
+                  setUpdateMsg(null);
+                  try {
+                    const r = await window.api.checkUpdates();
+                    if (r.disabled) setUpdateMsg('Update checks are turned off.');
+                    else if (r.available) {
+                      setUpdateMsg(`Update available: v${r.version}.`);
+                      const go = await dlgConfirm(
+                        `CaptionManager v${r.version} is available.\nOpen the download page to get it?`,
+                        { title: 'Update available', okLabel: 'Open download page', cancelLabel: 'Later' }
+                      );
+                      if (go) window.api.openPath(r.url);
+                    }
+                    else setUpdateMsg('You are up to date.');
+                  } catch (err) { setUpdateMsg('Check failed: ' + err.message); }
+                  setCheckingUpdate(false);
+                }}
+              >
+                {checkingUpdate ? 'Checking…' : '↻ Check now'}
+              </button>
+              {updateMsg && <span style={{ fontSize: 12, color: 'var(--muted)' }}>{updateMsg}</span>}
+            </div>
+          </div>
         </div>
         <div className="cap-steer-ftr">
           <span className="cap-steer-status">{busy ? 'Downloading… (~6 GB, keep the app open)' : status?.complete ? 'Models ready' : 'Models missing'}</span>

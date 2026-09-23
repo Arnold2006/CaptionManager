@@ -32,6 +32,12 @@ contextBridge.exposeInMainWorld('api', {
   modelsBrowse: () => ipcRenderer.invoke('models-browse'),
   modelsStatus: () => ipcRenderer.invoke('models-status'),
   modelsDownload: () => ipcRenderer.invoke('models-download'),
+  checkUpdates: () => ipcRenderer.invoke('check-updates'),
+  onUpdateAvailable: (cb) => {
+    const handler = (_e, data) => cb(data);
+    ipcRenderer.on('update-available', handler);
+    return () => ipcRenderer.removeListener('update-available', handler);
+  },
   onModelsProgress: (cb) => {
     const handler = (_e, data) => cb(data);
     ipcRenderer.on('models-progress', handler);

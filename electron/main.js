@@ -146,7 +146,11 @@ function createWindow() {
   });
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  createWindow();
+  // Update check shortly after startup (silent unless an update exists).
+  setTimeout(() => { checkForUpdates(true).catch(() => {}); }, 4000);
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
@@ -158,6 +162,57 @@ app.on('activate', () => {
 app.on('before-quit', () => {
   try { if (captionServer) captionServer.stopServer(); } catch {}
 });
+
+// ---- Update checker (GitHub, runs at startup) ----
+const UPDATE_REPO = 'Arnold2006/CaptionManager';
+const UPDATE_URL = `https://github.com/${UPDATE_REPO}/releases`;
+
+function localVersion() {
+  try {
+    return require(path.join(__dirname, '..', 'package.json')).version || '0.0.0';
+  } catch (_) {
+    return '0.0.0';
+  }
+}
+
+function isNewer(remote, local) {
+  const parse = (v) => String(v).replace(/^v/i, '').split('.').map((n) => parseInt(n, 10) || 0);
+  const r = parse(remote), l = parse(local);
+  for (let i = 0; i < Math.max(r.length, l.length); i++) {
+    if ((r[i] || 0) > (l[i] || 0)) return true;
+    if ((r[i] || 0) < (l[i] || 0)) return false;
+  }
+  return false;
+}
+
+// notifyRenderer: send 'update-available' to the window (startup path).
+// Returns { available, version, url } or { available:false }.
+async function checkForUpdates(notifyRenderer) {
+  const settings = appSettings.loadSettings();
+  if (settings.updateCheck === false) return { available: false, disabled: true };
+  try {
+    const res = await fetch(`https://raw.githubusercontent.com/${UPDATE_REPO}/main/package.json`, {
+      signal: AbortSignal.timeout(10000),
+      headers: { 'User-Agent': 'CaptionManager' },
+    });
+    if (!res.ok) return { available: false };
+    const remote = await res.json();
+    const local = localVersion();
+    if (remote && remote.version && isNewer(remote.version, local)) {
+      const info = { available: true, version: remote.version, url: UPDATE_URL };
+      if (notifyRenderer && mainWindow) {
+        mainWindow.webContents.send('update-available', info);
+      }
+      return info;
+    }
+    return { available: false };
+  } catch (err) {
+    debugLog('update check failed:', err && err.message);
+    return { available: false, error: String((err && err.message) || err) };
+  }
+}
+
+ipcMain.handle('check-updates', async () => checkForUpdates(false));
 
 // Helpers
 async function listImages(folder) {
