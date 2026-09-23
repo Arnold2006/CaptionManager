@@ -3,6 +3,9 @@ module.exports = {
     {
       method: "shell.run",
       params: {
+        env: {
+          CAPTIONMANAGER_USE_DIST: "1"
+        },
         message: ["npx electron ."]
       }
     }

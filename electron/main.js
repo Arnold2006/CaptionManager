@@ -84,7 +84,10 @@ function createWindow() {
   });
 
   const isDev = !app.isPackaged;
-  if (isDev) {
+  // Pinokio (and any launcher using the prebuilt dist without a vite server)
+  // sets CAPTIONMANAGER_USE_DIST=1 to skip the vite probe entirely.
+  const useDist = process.env.CAPTIONMANAGER_USE_DIST === '1';
+  if (isDev && !useDist) {
     // Don't auto-open DevTools (causes noisy Autofill.enable errors in Electron 33)
     // User can press F12 / Ctrl+Shift+I to open manually
     const devUrl = 'http://localhost:5173';
