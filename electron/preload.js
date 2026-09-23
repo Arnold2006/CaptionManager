@@ -4,7 +4,7 @@ contextBridge.exposeInMainWorld('api', {
   selectFolder: () => ipcRenderer.invoke('select-folder'),
   listImages: (folder) => ipcRenderer.invoke('list-images', folder),
   getThumbnail: (p, size) => ipcRenderer.invoke('get-thumbnail', p, size),
-  getImageData: (p) => ipcRenderer.invoke('get-image-data', p),
+  getImageData: (p, rotation) => ipcRenderer.invoke('get-image-data', p, rotation),
   deleteImage: (p) => ipcRenderer.invoke('delete-image', p),
   openPath: (p) => ipcRenderer.invoke('open-path', p),
   processBatch: (payload) => ipcRenderer.invoke('process-batch', payload),

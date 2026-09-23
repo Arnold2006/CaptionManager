@@ -76,9 +76,10 @@ export default function App() {
       return;
     }
     if (window.api) {
-      window.api.getImageData(selected).then(setImageData).catch(e=>{ console.error(e); setImageData(null); });
+      const rotation = (settings[selected] || {}).rotation || 0;
+      window.api.getImageData(selected, rotation).then(setImageData).catch(e=>{ console.error(e); setImageData(null); });
     } else setImageData(null);
-  }, [selected, images]);
+  }, [selected, images, (settings[selected] || {}).rotation]);
 
   useEffect(() => {
     if (!window.api) return;
@@ -180,10 +181,10 @@ export default function App() {
     } else dlgAlert('Delete failed: '+res.error);
   };
 
-  const currentSetting = settings[selected] || { crop: null, aspect:'free', upscaleEnabled:false };
+  const currentSetting = settings[selected] || { crop: null, aspect:'free', upscaleEnabled:false, rotation:0 };
 
   const updateSetting = (path, patch) => {
-    setSettings(prev=> ({ ...prev, [path]: { ...(prev[path]||{crop:null, aspect:'free', upscaleEnabled:false}), ...patch }}));
+    setSettings(prev=> ({ ...prev, [path]: { ...(prev[path]||{crop:null, aspect:'free', upscaleEnabled:false, rotation:0}), ...patch }}));
   };
 
   // Helpers to keep aspect math correct and avoid shrinking on switches
@@ -273,6 +274,12 @@ export default function App() {
     updateSetting(selected, { crop: newCrop });
   };
 
+  const rotateBy = (delta) => {
+    if (!selected) return;
+    const cur = currentSetting.rotation || 0;
+    updateSetting(selected, { rotation: (((cur + delta) % 360) + 360) % 360 });
+  };
+
   const go = async () => {
     if (!window.api || (folder && folder.startsWith('Browser selection'))) {
       dlgAlert('Batch GO (sharp/AI) requires Electron. Run: npm run electron:dev\nIn browser mode you can still preview crops, but processing needs the desktop app.');
@@ -284,7 +291,7 @@ export default function App() {
     }
     const map = {};
     for (const img of images) {
-      const s = settings[img.path] || { crop:null, aspect:'free', upscaleEnabled:false };
+      const s = settings[img.path] || { crop:null, aspect:'free', upscaleEnabled:false, rotation:0 };
       map[img.path] = s;
     }
     setBatch({ running:true, progress:{current:0,total:images.length}, result:null });
@@ -374,6 +381,17 @@ export default function App() {
               {ASPECTS.map(a=> (
                 <button key={a} className={`aspect-btn ${currentSetting.aspect===a?'active':''}`} onClick={()=>handleAspect(a)} disabled={!selected || !currentSetting.crop}>{a}</button>
               ))}
+            </div>
+            <div className="toolbar-group">
+              <span className="toolbar-label">Rotate</span>
+              <button className="btn" onClick={()=>rotateBy(-90)} disabled={!selected} title="Rotate 90° counter-clockwise">⟲</button>
+              <button className="btn" onClick={()=>rotateBy(90)} disabled={!selected} title="Rotate 90° clockwise">⟳</button>
+              {(currentSetting.rotation || 0) !== 0 && (
+                <>
+                  <span style={{fontSize:12, color:'var(--accent2)', fontWeight:700}}>{currentSetting.rotation}°</span>
+                  <button className="btn btn-ghost" onClick={()=>updateSetting(selected,{rotation:0})}>Reset</button>
+                </>
+              )}
             </div>
             <div className="toolbar-group">
               <span className="toolbar-label">Per-image upscale</span>

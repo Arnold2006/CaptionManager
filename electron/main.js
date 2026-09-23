@@ -222,16 +222,22 @@ ipcMain.handle('get-thumbnail', async (_e, imagePath, size=256) => {
   }
 });
 
-ipcMain.handle('get-image-data', async (_e, imagePath) => {
+ipcMain.handle('get-image-data', async (_e, imagePath, rotation) => {
   if (!sharp) throw new Error('sharp not installed');
   try {
-    const meta = await sharp(imagePath).rotate().metadata();
-    const buf = await sharp(imagePath).rotate().resize(1200, 1200, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 85 }).toBuffer();
+    const angle = ((Number(rotation) % 360) + 360) % 360;
+    // Auto-orient first (matches existing behavior), then apply user rotation
+    // so the preview — and all crop math derived from it — lives in rotated space.
+    let buf = await sharp(imagePath).rotate().toBuffer();
+    if (angle) buf = await sharp(buf).rotate(angle).toBuffer();
+    const meta = await sharp(buf).metadata();
+    const out = await sharp(buf).resize(1200, 1200, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 85 }).toBuffer();
     return {
-      dataUrl: `data:image/jpeg;base64,${buf.toString('base64')}`,
+      dataUrl: `data:image/jpeg;base64,${out.toString('base64')}`,
       width: meta.width,
       height: meta.height,
-      format: meta.format
+      format: meta.format,
+      rotation: angle
     };
   } catch (err) {
     console.error('get-image-data fail', err);
@@ -291,8 +297,13 @@ ipcMain.handle('process-batch', async (event, { folder, settings, globalFormat, 
     try {
       // check file still exists
       await fsp.access(imgPath);
-      const meta = await sharp(imgPath).metadata();
-      let pipeline = sharp(imgPath).rotate();
+      // Auto-orient, then apply user rotation FIRST so crop coords (defined
+      // in rotated preview space) map 1:1 onto these pixels.
+      const angle = ((Number(s.rotation) % 360) + 360) % 360;
+      let oriented = await sharp(imgPath).rotate().toBuffer();
+      if (angle) oriented = await sharp(oriented).rotate(angle).toBuffer();
+      const meta = await sharp(oriented).metadata();
+      let pipeline = sharp(oriented);
 
       // Crop
       if (s.crop) {

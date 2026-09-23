@@ -17,10 +17,11 @@ Electron + React desktop app for preparing image datasets: crop workspace with b
 ### ✂️ Crop
 - **Left grid**: load a folder of images (jpg/jpeg/png/tif/tiff/webp/bmp/avif) into a thumbnail grid. Click to focus, hover `×` to move to Recycle Bin.
 - **Workspace**: large view with zoom slider and draggable/resizable crop box (8 handles) with aspect locks (`free, 1:1, 4:5, 5:4, 4:3, 3:4, 16:9, 9:16, 3:2, 2:3`).
-- **Settings memory**: each image keeps `{crop, aspect, upscaleEnabled}` until GO.
+- **Rotate**: per-image 90° steps (⟲ ⟳ + reset). Rotation applies first at export, so crop and aspect work in rotated space; preview and thumbnail badges reflect it.
+- **Settings memory**: each image keeps `{crop, aspect, upscaleEnabled, rotation}` until GO.
 - **Upscale**: global `2×` toggle (all) + per-image `2×` toggle (AI ESRGAN when available, else sharp lanczos3).
 - **Forced format**: global `jpg/png/tif/webp` applied on export.
-- **GO**: batches `crop → upscale → convert` via sharp into `<source>/CaptionManager_output_<ISOtimestamp>/`, with progress bar + open-output button. Finished outputs are handed to the Caption tab automatically.
+- **GO**: batches `rotate → crop → upscale → convert` via sharp into `<source>/CaptionManager_output_<ISOtimestamp>/`, with progress bar + open-output button. Finished outputs are handed to the Caption tab automatically.
 
 ### 💬 Caption
 - **Queue sidebar**: cropped outputs appear here after every GO, with status dots (done / failed / new).

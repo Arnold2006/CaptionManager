@@ -45,6 +45,7 @@ export default function ThumbnailGrid({ images, selected, onSelect, onDelete, se
         const s = settings[img.path];
         const hasCrop = s?.crop != null;
         const up = s?.upscaleEnabled;
+        const rot = s?.rotation || 0;
         const isSelected = selected === img.path;
         return (
           <div key={img.path} className={`thumb ${isSelected ? 'selected':''}`} onClick={()=>onSelect(img.path)} title={img.name}>
@@ -52,6 +53,7 @@ export default function ThumbnailGrid({ images, selected, onSelect, onDelete, se
             <div className="thumb-badges">
               {hasCrop && <span className="badge badge-green">crop</span>}
               {up && <span className="badge badge-blue">2×</span>}
+              {rot !== 0 && <span className="badge badge-blue">⟳ {rot}°</span>}
             </div>
             <button className="thumb-delete" onClick={(e)=>{e.stopPropagation(); onDelete(img.path);}} title="Move to recycle bin">×</button>
             <div className="thumb-footer">{img.name}</div>
