@@ -747,7 +747,7 @@ export default function CaptionTab({ images, onOpenSettings }) {
                 const done = r.ideogram?.ok || r.plain?.ok || r.h3?.ok;
                 return (
                   <div key={img.path} className={`cap-si ${selected?.path === img.path ? 'active' : ''}`} onClick={() => setSelectedPath(img.path)} title={img.name}>
-                    {thumbs[img.path] ? <img src={thumbs[img.path]} alt={img.name} loading="lazy" /> : <div style={{ width: '100%', height: '100%', background: '#1e222b' }} />}
+                    {thumbs[img.path] ? <img src={thumbs[img.path]} alt={img.name} loading="lazy" draggable={false} /> : <div style={{ width: '100%', height: '100%', background: '#1e222b' }} />}
                     {!done && !r.error && <span className="cap-si-new">new</span>}
                     <span className={`cap-si-dot ${r.error ? 'failed' : done ? 'done' : ''}`} />
                     <div className="cap-si-cap">{img.name}</div>

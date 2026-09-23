@@ -49,7 +49,7 @@ export default function ThumbnailGrid({ images, selected, onSelect, onDelete, se
         const isSelected = selected === img.path;
         return (
           <div key={img.path} className={`thumb ${isSelected ? 'selected':''}`} onClick={()=>onSelect(img.path)} title={img.name}>
-            {thumbs[img.path] ? <img src={thumbs[img.path]} alt={img.name} loading="lazy" /> : <div style={{flex:1, background:'#1e222b'}} />}
+            {thumbs[img.path] ? <img src={thumbs[img.path]} alt={img.name} loading="lazy" draggable={false} /> : <div style={{flex:1, background:'#1e222b'}} />}
             <div className="thumb-badges">
               {hasCrop && <span className="badge badge-green">crop</span>}
               {up && <span className="badge badge-blue">2×</span>}

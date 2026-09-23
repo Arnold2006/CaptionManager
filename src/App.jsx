@@ -105,6 +105,11 @@ export default function App() {
 
   const handleDrop = async (e) => {
     e.preventDefault(); setDragOver(false);
+    // Only accept real OS file/folder drops. Internal drags (e.g. an
+    // accidental thumbnail drag) carry text/uri-list but no Files — ignore
+    // them so the current folder is never wiped by mistake.
+    const types = Array.from(e.dataTransfer?.types || []);
+    if (!types.includes('Files')) return;
     const files = Array.from(e.dataTransfer.files || []);
     if (files.length===0) return;
 
