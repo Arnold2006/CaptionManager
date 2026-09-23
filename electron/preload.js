@@ -22,7 +22,6 @@ contextBridge.exposeInMainWorld('api', {
   },
   captionStatus: () => ipcRenderer.invoke('caption-status'),
   captionEnsureServer: () => ipcRenderer.invoke('caption-ensure-server'),
-  captionStopServer: () => ipcRenderer.invoke('caption-stop-server'),
   captionImageData: (p, crop) => ipcRenderer.invoke('caption-image-data', p, crop),
   captionGenerate: (payload) => ipcRenderer.invoke('caption-generate', payload),
   saveCaption: (payload) => ipcRenderer.invoke('save-caption', payload),

@@ -45,7 +45,7 @@ export default function CaptionTab({ images, onOpenSettings, onSetImages }) {
   const [serverMsg, setServerMsg] = useState('');
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState(null);
-  const [results, setResults] = useState({}); // path -> {ideogram?, plain?, h3?, error?}
+  const [results, setResults] = useState({}); // path -> {ideogram?, plain?, error?}
   const [edits, setEdits] = useState({}); // path -> {ideogramData?, plainText?, h3Text?, dirty?}
   const [selectedPath, setSelectedPath] = useState(null);
   const [thumbs, setThumbs] = useState({});
@@ -759,7 +759,7 @@ export default function CaptionTab({ images, onOpenSettings, onSetImages }) {
             <div className="cap-side-grid">
               {images.map((img) => {
                 const r = results[img.path] || {};
-                const done = r.ideogram?.ok || r.plain?.ok || r.h3?.ok;
+                const done = r.ideogram?.ok || r.plain?.ok;
                 return (
                   <div key={img.path} className={`cap-si ${selected?.path === img.path ? 'active' : ''}`} onClick={() => setSelectedPath(img.path)} title={img.name}>
                     {thumbs[img.path] ? <img src={thumbs[img.path]} alt={img.name} loading="lazy" draggable={false} /> : <div style={{ width: '100%', height: '100%', background: '#1e222b' }} />}

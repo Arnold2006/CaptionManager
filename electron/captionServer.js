@@ -13,8 +13,14 @@ const { normalizeCaption, serializeCaption } = require('./captionNormalize');
 const { validateCaption } = require('./captionValidate');
 const { MODEL_FILE, MMPROJ_FILE } = require('./modelInfo');
 const { resolveModelsDir } = require('./settings');
+const {
+  llamaHost, llamaPreferredPort, llamaPortScanMax, llamaCtxSize, llamaGpuLayers,
+  llamaReadyTimeoutMs, llamaReadyPollMs, captionMaxAttempts,
+  captionFirstTemp, captionRetryTemp, captionTopP, captionMaxTokens,
+  verifyMaxTokens, verifyTemp, plainMaxTokens,
+} = require('./config');
 
-const MAX_ATTEMPTS = 3;
+const MAX_ATTEMPTS = captionMaxAttempts;
 
 let proc = null;
 let llamaUrl = null;
@@ -46,14 +52,14 @@ function resolveLlamaServer() {
   throw new Error('llama-server binary not found. Open Settings (⚙) to download it.');
 }
 
-async function waitForLlama(baseUrl, timeoutMs = 180000) {
+async function waitForLlama(baseUrl, timeoutMs = llamaReadyTimeoutMs) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     try {
       const r = await fetch(baseUrl + '/health');
       if (r.ok) return true;
     } catch (_) {}
-    await new Promise((r) => setTimeout(r, 1500));
+    await new Promise((r) => setTimeout(r, llamaReadyPollMs));
   }
   throw new Error('llama-server did not become ready in time');
 }
@@ -61,12 +67,12 @@ async function waitForLlama(baseUrl, timeoutMs = 180000) {
 function spawnLlama({ bin, port, model, mmproj }) {
   const args = [
     '--model', model,
-    '--ctx-size', '8192',
+    '--ctx-size', String(llamaCtxSize),
     '--port', String(port),
-    '--host', '127.0.0.1',
+    '--host', llamaHost,
     '--no-webui',
     '--jinja',
-    '--n-gpu-layers', '99',
+    '--n-gpu-layers', String(llamaGpuLayers),
     '--parallel', '1',
     '--log-disable',
   ];
@@ -84,8 +90,8 @@ async function ensureServer() {
     const { modelFile, mmprojFile } = resolveModels();
     const bin = resolveLlamaServer();
     // Fixed preferred port, bump if busy
-    let port = 8901;
-    for (let i = 0; i < 20; i++) {
+    let port = llamaPreferredPort;
+    for (let i = 0; i < llamaPortScanMax; i++) {
       try {
         const test = await fetch(`http://127.0.0.1:${port}/health`).then(() => true).catch(() => false);
         if (!test) break;
@@ -285,7 +291,7 @@ async function verifyTextElements(url, imageBase64, caption) {
   ];
   let raw = null;
   try {
-    const content = await chatCompletion(url, { messages, temperature: 0.2, topP: 0.9, maxTokens: 512, jsonSchema: { name: 'text_transcription', schema: TEXT_VERIFY_SCHEMA } });
+    const content = await chatCompletion(url, { messages, temperature: verifyTemp, topP: captionTopP, maxTokens: verifyMaxTokens, jsonSchema: { name: 'text_transcription', schema: TEXT_VERIFY_SCHEMA } });
     try { raw = JSON.parse(content); }
     catch {
       const s = content.indexOf('{'), e = content.lastIndexOf('}');
@@ -326,7 +332,7 @@ async function generateIdeogram(url, imageBase64, instructions, dims) {
     let text;
     try {
       text = await chatCompletion(url, {
-        messages, temperature: attempt === 1 ? 0.6 : 0.3, topP: 0.9, maxTokens: 4096,
+        messages, temperature: attempt === 1 ? captionFirstTemp : captionRetryTemp, topP: captionTopP, maxTokens: captionMaxTokens,
         jsonSchema: { name: 'ideogram_prompt', schema: GENERATION_SCHEMA }
       });
     } catch (err) {
@@ -365,7 +371,7 @@ async function generatePlain(url, imageBase64, instructions, dims) {
     : `Write a single detailed plain-text caption paragraph for this image.${aspectLine(dims)} Output ONLY the caption, nothing else.`;
   const messages = buildFreeMessages(PLAIN_SYSTEM_PROMPT, imageBase64, userText);
   try {
-    const text = (await chatCompletion(url, { messages, temperature: 0.6, topP: 0.9, maxTokens: 512 })).trim();
+    const text = (await chatCompletion(url, { messages, temperature: captionFirstTemp, topP: captionTopP, maxTokens: plainMaxTokens })).trim();
     if (!text) return { ok: false, mode: 'plain', error: 'empty response from model' };
     return { ok: true, mode: 'plain', text, steering_used: (steering.length > 0) };
   } catch (err) {
