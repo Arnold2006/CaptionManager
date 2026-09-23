@@ -162,7 +162,14 @@ export default function App() {
       return;
     }
     if (!(await dlgConfirm(`Move to Recycle Bin?\n${path}`, { title: 'Delete image', okLabel: 'Delete', danger: true }))) return;
-    const res = await window.api.deleteImage(path);
+    let res;
+    try {
+      res = await window.api.deleteImage(path);
+    } catch (err) {
+      console.error('deleteImage failed', err);
+      dlgAlert('Delete failed: ' + (err.message || err));
+      return;
+    }
     if (res.success) {
       setImages(prev=> prev.filter(i=>i.path!==path));
       setSettings(prev=> { const n={...prev}; delete n[path]; return n; });

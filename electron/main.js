@@ -12,6 +12,29 @@ try { captionServer = require('./captionServer'); } catch(e) { console.warn('cap
 
 const SUPPORTED_EXTS = new Set(['.jpg','.jpeg','.png','.tif','.tiff','.webp','.bmp','.avif','.heic','.heif']);
 
+// ---- crash/close diagnostics ----
+// Everything unexpected is appended to <userData>/captionmanager-debug.log
+// so a vanishing window leaves a trace of HOW it died.
+function debugLog(...args) {
+  try {
+    const line = `[${new Date().toISOString()}] ` + args.map((a) => {
+      if (a instanceof Error) return a.stack || a.message;
+      if (typeof a === 'object') { try { return JSON.stringify(a); } catch (_) { return String(a); } }
+      return String(a);
+    }).join(' ') + '\n';
+    let dir = null;
+    try { dir = app.getPath('userData'); } catch (_) {}
+    if (dir) {
+      fs.mkdirSync(dir, { recursive: true });
+      fs.appendFileSync(path.join(dir, 'captionmanager-debug.log'), line);
+    }
+  } catch (_) {}
+  console.error('[debug]', ...args);
+}
+
+process.on('uncaughtException', (e) => debugLog('main uncaughtException:', e));
+process.on('unhandledRejection', (e) => debugLog('main unhandledRejection:', e));
+
 let mainWindow;
 let splash;
 
@@ -57,8 +80,7 @@ function createWindow() {
     setTimeout(() => {
       if (splash) { splash.close(); }
       mainWindow.show();
-      mainWindow.focus();
-    }, 300); // tiny fade buffer so splash doesn't flash
+      mainWindow.focus();    }, 300); // tiny fade buffer so splash doesn't flash
   });
 
   const isDev = !app.isPackaged;
@@ -107,6 +129,18 @@ function createWindow() {
   } else {
     mainWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
   }
+
+  // Diagnostics: distinguish an orderly window close from a renderer crash.
+  // A normal close logs here; a native crash never reaches this line.
+  mainWindow.on('close', () => {
+    debugLog('mainWindow close event fired (orderly window close)');
+  });
+  mainWindow.webContents.on('render-process-gone', (_e, details) => {
+    debugLog('RENDERER GONE:', details && details.reason, 'exitCode:', details && details.exitCode);
+  });
+  mainWindow.webContents.on('crashed', (_e, killed) => {
+    debugLog('RENDERER CRASHED, killed:', killed);
+  });
 }
 
 app.whenReady().then(createWindow);
@@ -209,13 +243,15 @@ ipcMain.handle('get-image-buffer', async (_e, imagePath) => {
 });
 
 ipcMain.handle('delete-image', async (_e, imagePath) => {
+  debugLog('delete-image start:', imagePath);
   try {
     await shell.trashItem(imagePath);
+    debugLog('delete-image trashed ok:', imagePath);
     return { success: true, trashed: true };
   } catch (err) {
-    console.error('trash failed', err);
+    debugLog('delete-image trash failed:', imagePath, err && err.message);
     // fallback try unlink
-    try { await fsp.unlink(imagePath); return { success: true, trashed: false }; } catch(e2) { return { success:false, error: e2.message }; }
+    try { await fsp.unlink(imagePath); debugLog('delete-image unlinked ok:', imagePath); return { success: true, trashed: false }; } catch(e2) { debugLog('delete-image unlink failed:', imagePath, e2 && e2.message); return { success:false, error: e2.message }; }
   }
 });
 
