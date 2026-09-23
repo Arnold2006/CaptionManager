@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
 // App-styled replacement for window.alert / window.confirm.
 // Usage: const { alert, confirm } = useDialog();
@@ -11,21 +11,24 @@ let nextId = 0;
 
 export function DialogProvider({ children }) {
   const [queue, setQueue] = useState([]);
+  // Ref mirror so close() can resolve outside the state updater
+  // (side effects inside updaters break under StrictMode double-invoke).
+  const queueRef = useRef([]);
 
   const show = useCallback((kind, message, opts) => new Promise((resolve) => {
     const id = ++nextId;
-    setQueue((q) => [...q, { id, kind, message, opts: opts || {}, resolve }]);
+    queueRef.current = [...queueRef.current, { id, kind, message, opts: opts || {}, resolve }];
+    setQueue(queueRef.current);
   }), []);
 
   const alert = useCallback((message, opts) => show('alert', message, opts), [show]);
   const confirm = useCallback((message, opts) => show('confirm', message, opts), [show]);
 
   const close = useCallback((id, value) => {
-    setQueue((q) => {
-      const item = q.find((d) => d.id === id);
-      if (item) Promise.resolve().then(() => item.resolve(value));
-      return q.filter((d) => d.id !== id);
-    });
+    const item = queueRef.current.find((d) => d.id === id);
+    queueRef.current = queueRef.current.filter((d) => d.id !== id);
+    setQueue(queueRef.current);
+    if (item) item.resolve(value);
   }, []);
 
   const current = queue[0] || null;

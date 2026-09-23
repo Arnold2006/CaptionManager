@@ -1,25 +1,43 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { mapLimit } from '../lib/mapLimit.js';
+
+const THUMB_CONCURRENCY = 5;
 
 export default function ThumbnailGrid({ images, selected, onSelect, onDelete, settings }) {
   const [thumbs, setThumbs] = useState({});
+  const thumbsRef = useRef({});
+  useEffect(() => { thumbsRef.current = thumbs; }, [thumbs]);
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      const next = {};
+      // Sync entries (browser blobs) resolve immediately; Electron thumbs load concurrently.
+      const sync = {};
+      const pending = [];
       for (const img of images) {
-        if (thumbs[img.path]) { next[img.path] = thumbs[img.path]; continue; }
-        // browser fallback: use blobUrl directly
-        if (img.blobUrl) { next[img.path] = img.blobUrl; continue; }
-        if (!window.api) continue;
+        if (thumbsRef.current[img.path]) continue;
+        if (img.blobUrl) { sync[img.path] = img.blobUrl; continue; }
+        if (window.api) pending.push(img);
+      }
+      if (Object.keys(sync).length) {
+        setThumbs((prev) => ({ ...prev, ...sync }));
+      }
+      if (pending.length === 0) return;
+      const loaded = await mapLimit(pending, THUMB_CONCURRENCY, async (img) => {
         try {
           const data = await window.api.getThumbnail(img.path, 280);
-          if (!cancelled) next[img.path] = data;
+          return [img.path, data];
         } catch (e) {
           console.error(e);
+          return null;
         }
+      }, () => cancelled);
+      if (cancelled) return;
+      const next = {};
+      for (const entry of loaded) {
+        if (entry && entry[1]) next[entry[0]] = entry[1];
       }
-      if (!cancelled) setThumbs(prev => ({ ...prev, ...next }));
+      if (Object.keys(next).length) setThumbs((prev) => ({ ...prev, ...next }));
     }
     load();
     return () => { cancelled = true; };

@@ -21,37 +21,10 @@ function outputDirFor(folder) {
   return path.join(folder, `CaptionManager_output_${timestamp}`);
 }
 
-async function upscale2x(pipeline) {
-  // Try Upscaler if available, fallback to sharp lanczos
-  let usedAI = false;
-  try {
-    let upscalerMod = null;
-    try { upscalerMod = require('upscaler'); } catch {}
-    if (!upscalerMod) { try { upscalerMod = require('@upscaler/node'); } catch {} }
-    if (upscalerMod) {
-      const buf = await pipeline.toBuffer();
-      const Upscaler = upscalerMod.default || upscalerMod;
-      const upscaler = new Upscaler({ model: 'esrgan-slim' });
-      const upscaled = await upscaler.upscale(buf);
-      let upBuf;
-      if (Buffer.isBuffer(upscaled)) upBuf = upscaled;
-      else if (typeof upscaled === 'string' && upscaled.startsWith('data:')) {
-        upBuf = Buffer.from(upscaled.split(',')[1], 'base64');
-      } else {
-        throw new Error('unexpected upscaler output');
-      }
-      pipeline = sharp(upBuf);
-      usedAI = true;
-    }
-  } catch (aiErr) {
-    console.warn('AI upscale failed, fallback to sharp', aiErr.message);
-  }
-  if (!usedAI) {
-    const tmpBuf = await pipeline.toBuffer();
-    const tmpMeta = await sharp(tmpBuf).metadata();
-    pipeline = sharp(tmpBuf).resize(tmpMeta.width * 2, tmpMeta.height * 2, { kernel: 'lanczos3' });
-  }
-  return pipeline;
+async function upscaleLanczos2x(pipeline) {
+  const tmpBuf = await pipeline.toBuffer();
+  const tmpMeta = await sharp(tmpBuf).metadata();
+  return sharp(tmpBuf).resize(tmpMeta.width * 2, tmpMeta.height * 2, { kernel: 'lanczos3' });
 }
 
 function applyFormat(pipeline, fmt) {
@@ -74,7 +47,7 @@ async function processOne(imgPath, s, { fmt, globalUpscale }) {
   if (rect) pipeline = pipeline.extract(rect);
 
   if (globalUpscale || s.upscaleEnabled) {
-    pipeline = await upscale2x(pipeline);
+    pipeline = await upscaleLanczos2x(pipeline);
   }
   return applyFormat(pipeline, fmt);
 }
@@ -113,4 +86,4 @@ function registerBatch({ ipcMain, getMainWindow }) {
   });
 }
 
-module.exports = { registerBatch, processOne, outputDirFor, FORMAT_MAP, upscale2x, applyFormat };
+module.exports = { registerBatch, processOne, outputDirFor, FORMAT_MAP, upscaleLanczos2x, applyFormat };

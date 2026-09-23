@@ -26,6 +26,32 @@ let proc = null;
 let llamaUrl = null;
 let llamaPort = null;
 let starting = null;
+let stopRequested = false;
+
+// Bump past ports that already answer /health.
+async function findFreePort(port) {
+  for (let i = 0; i < llamaPortScanMax; i++) {
+    let busy = false;
+    try {
+      const r = await fetch(`http://${llamaHost}:${port}/health`);
+      busy = r.ok;
+    } catch (_) { busy = false; }
+    if (!busy) return port;
+    port++;
+  }
+  return port;
+}
+
+// Confirm the ready server is ours (not a foreign /health on the same port).
+async function servedModelMatches(url, modelFile) {
+  try {
+    const r = await fetch(url + '/v1/models');
+    if (!r.ok) return false;
+    return (await r.text()).includes(path.basename(modelFile));
+  } catch (_) {
+    return false;
+  }
+}
 
 function appRoot() {
   // electron/captionServer.js -> repo root (dev) or app root (packaged)
@@ -86,26 +112,42 @@ function spawnLlama({ bin, port, model, mmproj }) {
 async function ensureServer() {
   if (llamaUrl && proc && proc.exitCode === null) return { url: llamaUrl, port: llamaPort };
   if (starting) return starting;
+  stopRequested = false;
   starting = (async () => {
     const { modelFile, mmprojFile } = resolveModels();
     const bin = resolveLlamaServer();
-    // Fixed preferred port, bump if busy
     let port = llamaPreferredPort;
-    for (let i = 0; i < llamaPortScanMax; i++) {
+    // Try a few ports: skip ports already answering /health AND verify the
+    // ready server is actually ours (a foreign /health must not hijack us).
+    for (let attempt = 0; attempt < 3; attempt++) {
+      port = await findFreePort(port);
+      if (proc) { try { proc.kill(); } catch (_) {} proc = null; }
+      proc = spawnLlama({ bin, port, model: modelFile, mmproj: mmprojFile });
+      llamaUrl = `http://${llamaHost}:${port}`;
+      llamaPort = port;
+      console.log('[caption] starting llama-server on', llamaUrl);
       try {
-        const test = await fetch(`http://127.0.0.1:${port}/health`).then(() => true).catch(() => false);
-        if (!test) break;
-        port++;
-      } catch (_) { break; }
+        await waitForLlama(llamaUrl);
+      } catch (e) {
+        try { proc.kill(); } catch (_) {}
+        proc = null; llamaUrl = null;
+        throw e;
+      }
+      if (stopRequested) {
+        try { proc.kill(); } catch (_) {}
+        proc = null; llamaUrl = null;
+        throw new Error('caption server stopped');
+      }
+      if (await servedModelMatches(llamaUrl, modelFile)) {
+        console.log('[caption] llama-server ready');
+        return { url: llamaUrl, port };
+      }
+      console.warn('[caption] port', port, 'is served by a foreign process, trying next port');
+      try { proc.kill(); } catch (_) {}
+      proc = null; llamaUrl = null;
+      port++;
     }
-    if (proc) { try { proc.kill(); } catch (_) {} proc = null; }
-    proc = spawnLlama({ bin, port, model: modelFile, mmproj: mmprojFile });
-    llamaUrl = `http://127.0.0.1:${port}`;
-    llamaPort = port;
-    console.log('[caption] starting llama-server on', llamaUrl);
-    await waitForLlama(llamaUrl);
-    console.log('[caption] llama-server ready');
-    return { url: llamaUrl, port };
+    throw new Error('could not start llama-server on a free port');
   })();
   try {
     return await starting;
@@ -115,7 +157,8 @@ async function ensureServer() {
 }
 
 function stopServer() {
-  if (starting) return;
+  stopRequested = true;
+  if (starting) return; // in-flight start observes the flag and tears down
   if (proc) { try { proc.kill(); } catch (_) {} proc = null; llamaUrl = null; }
 }
 
@@ -385,4 +428,4 @@ async function generate(imageBase64, { mode, instructions, dims }) {
   return generateIdeogram(url, imageBase64, instructions, dims);
 }
 
-module.exports = { ensureServer, stopServer, status, generate, MODEL_FILE, MMPROJ_FILE, extractHldPrefix };
+module.exports = { ensureServer, stopServer, status, generate, MODEL_FILE, MMPROJ_FILE, extractHldPrefix, findFreePort, servedModelMatches };

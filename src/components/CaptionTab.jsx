@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import BboxCanvas from './BboxCanvas.jsx';
 import AutoTextarea from './AutoTextarea.jsx';
+import ErrorBoundary from './ErrorBoundary.jsx';
+import { mapLimit } from '../lib/mapLimit.js';
 import { useDialog } from './dialog.jsx';
 
 // Caption tab: 3-column Ideogram editor (queue | image + bbox overlay | text editor),
@@ -83,19 +85,27 @@ export default function CaptionTab({ images, onOpenSettings, onSetImages }) {
     return off;
   }, []);
 
-  // sidebar thumbnails
+  // sidebar thumbnails (concurrent loads, 5 at a time)
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      const next = {};
-      for (const img of images) {
-        if (thumbs[img.path] || !window.api?.getThumbnail) continue;
+      const pending = images.filter((img) => !thumbs[img.path] && window.api?.getThumbnail);
+      if (pending.length === 0) return;
+      const loaded = await mapLimit(pending, 5, async (img) => {
         try {
           const data = await window.api.getThumbnail(img.path, 280);
-          if (!cancelled && data) next[img.path] = data;
-        } catch (e) { console.error(e); }
+          return data ? [img.path, data] : null;
+        } catch (e) {
+          console.error(e);
+          return null;
+        }
+      }, () => cancelled);
+      if (cancelled) return;
+      const next = {};
+      for (const entry of loaded) {
+        if (entry) next[entry[0]] = entry[1];
       }
-      if (!cancelled && Object.keys(next).length) setThumbs((prev) => ({ ...prev, ...next }));
+      if (Object.keys(next).length) setThumbs((prev) => ({ ...prev, ...next }));
     }
     load();
     return () => { cancelled = true; };
@@ -839,7 +849,9 @@ export default function CaptionTab({ images, onOpenSettings, onSetImages }) {
 
           {/* right: text editor */}
           <div className="cap-editor">
-            {viewMode === 'ideogram' ? renderIdeogramEditor() : renderTextEditor()}
+            <ErrorBoundary title="Editor crashed on this caption">
+              {viewMode === 'ideogram' ? renderIdeogramEditor() : renderTextEditor()}
+            </ErrorBoundary>
           </div>
         </div>
       )}

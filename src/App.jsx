@@ -355,7 +355,7 @@ export default function App() {
                 <option value="webp">WEBP</option>
               </select>
             </div>
-            <label className="checkbox" title="Global 2× upscale (AI, fallback to lanczos)">
+            <label className="checkbox" title="Global 2× upscale (sharp lanczos3)">
               <input type="checkbox" checked={globalUpscale} onChange={e=>setGlobalUpscale(e.target.checked)} /> 2× Upscale (all)
             </label>
             {images.length>0 && <span style={{fontSize:12, color:'var(--muted)'}}>{images.length} images · {countCropped} cropped · {countUpscaled} upscaled</span>}

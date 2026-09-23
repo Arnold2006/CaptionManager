@@ -1,7 +1,7 @@
 {
   "name": "captionmanager",
   "version": "0.1.0",
-  "description": "CaptionManager - thumbnail grid review + crop workspace + AI upscale batch processor + AI captioning (llama.cpp)",
+  "description": "CaptionManager - thumbnail grid review + crop workspace + batch processor + AI captioning (llama.cpp)",
   "main": "electron/main.js",
   "type": "commonjs",
   "scripts": {
@@ -20,9 +20,7 @@
   },
   "dependencies": {
     "@huggingface/hub": "^2.16.3",
-    "onnxruntime-node": "^1.29.0",
-    "sharp": "^0.35.4",
-    "upscaler": "^1.0.0"
+    "sharp": "^0.35.4"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.3",

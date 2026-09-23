@@ -19,7 +19,7 @@ Electron + React desktop app for preparing image datasets: crop workspace with b
 - **Workspace**: large view with zoom slider and draggable/resizable crop box (8 handles) with aspect locks (`free, 1:1, 4:5, 5:4, 4:3, 3:4, 16:9, 9:16, 3:2, 2:3`).
 - **Rotate**: per-image 90° steps (⟲ ⟳ + reset). Rotation applies first at export, so crop and aspect work in rotated space; preview and thumbnail badges reflect it.
 - **Settings memory**: each image keeps `{crop, aspect, upscaleEnabled, rotation}` until GO.
-- **Upscale**: global `2×` toggle (all) + per-image `2×` toggle (AI ESRGAN when available, else sharp lanczos3).
+- **Upscale**: global `2×` toggle (all) + per-image `2×` toggle (sharp lanczos3, local).
 - **Forced format**: global `jpg/png/tif/webp` applied on export.
 - **GO**: batches `rotate → crop → upscale → convert` via sharp into `<source>/CaptionManager_output_<ISOtimestamp>/`, with progress bar + open-output button. Finished outputs are handed to the Caption tab automatically.
 
@@ -71,6 +71,6 @@ src/App.jsx       # Crop/Caption tabs + handoff + settings modal host
 src/components/   # ThumbnailGrid, Workspace, CropBox, BboxCanvas,
                   # CaptionTab (3-col editor), SettingsModal, AutoTextarea, dialog
 scripts/          # model/llama-server download helpers
-models/           # local models (gitignored: *.gguf) + esrgan placeholder
+models/           # local VLM models (gitignored: *.gguf)
 bin/              # llama-server binaries (gitignored, bundled in portable)
 ```

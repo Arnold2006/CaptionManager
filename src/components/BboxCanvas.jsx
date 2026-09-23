@@ -15,6 +15,7 @@ export default function BboxCanvas({ src, elements, selectedIdx, drawMode, onSel
   const [size, setSize] = useState(null); // displayed img {w,h}
   const dragRef = useRef(null); // {kind:'move'|'resize'|'draw', ...}
   const [preview, setPreview] = useState(null); // draw preview bbox
+  const previewRef = useRef(null); // mirror: endDrag must not side-effect inside a state updater
   const cbRef = useRef({ onSelect, onBboxChange, onDrawComplete });
   cbRef.current = { onSelect, onBboxChange, onDrawComplete };
 
@@ -167,6 +168,7 @@ export default function BboxCanvas({ src, elements, selectedIdx, drawMode, onSel
     if (drawMode) {
       const { bx, by } = toBboxPt(p.x, p.y, size.w, size.h);
       dragRef.current = { kind: 'draw', startBx: bx, startBy: by };
+      previewRef.current = null;
       setPreview(null);
       e.preventDefault();
       return;
@@ -219,7 +221,9 @@ export default function BboxCanvas({ src, elements, selectedIdx, drawMode, onSel
     if (d.kind === 'draw') {
       const x0 = clamp(d.startBx), y0 = clamp(d.startBy);
       const x1 = clamp(bx), y1 = clamp(by);
-      setPreview([Math.round(Math.min(y0, y1)), Math.round(Math.min(x0, x1)), Math.round(Math.max(y0, y1)), Math.round(Math.max(x0, x1))]);
+      const box = [Math.round(Math.min(y0, y1)), Math.round(Math.min(x0, x1)), Math.round(Math.max(y0, y1)), Math.round(Math.max(x0, x1))];
+      previewRef.current = box;
+      setPreview(box);
       return;
     }
     if (d.kind === 'move') {
@@ -248,12 +252,12 @@ export default function BboxCanvas({ src, elements, selectedIdx, drawMode, onSel
     const d = dragRef.current;
     dragRef.current = null;
     if (d && d.kind === 'draw') {
-      setPreview((prev) => {
-        if (prev && prev[3] - prev[1] >= 10 && prev[2] - prev[0] >= 10) {
-          cbRef.current.onDrawComplete(drawMode, prev);
-        }
-        return null;
-      });
+      const prev = previewRef.current;
+      previewRef.current = null;
+      setPreview(null);
+      if (prev && prev[3] - prev[1] >= 10 && prev[2] - prev[0] >= 10) {
+        cbRef.current.onDrawComplete(drawMode, prev);
+      }
     }
   };
 
