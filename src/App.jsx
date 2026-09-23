@@ -361,7 +361,7 @@ export default function App() {
 
       {activeTab==='caption' ? (
         <div className="main" style={{display:'flex', flexDirection:'column'}}>
-          <CaptionTab images={captionImages} onOpenSettings={()=>setSettingsOpen(true)} />
+          <CaptionTab images={captionImages} onOpenSettings={()=>setSettingsOpen(true)} onSetImages={(list)=>{ setCaptionImages(list); setCaptionNotice(null); }} />
         </div>
       ) : (
       <>

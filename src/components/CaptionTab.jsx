@@ -35,7 +35,7 @@ function emptyIdeogram() {
   };
 }
 
-export default function CaptionTab({ images, onOpenSettings }) {
+export default function CaptionTab({ images, onOpenSettings, onSetImages }) {
   const { alert: dlgAlert } = useDialog();
   const [batchScope, setBatchScope] = useState('all');
   const [viewMode, setViewMode] = useState('ideogram');
@@ -113,7 +113,19 @@ export default function CaptionTab({ images, onOpenSettings }) {
   }, [selected && selected.path]);
 
   const openSteer = () => setSteerOpen(true);
-  const closeSteer = () => {
+  const loadFolder = async () => {
+    if (!window.api?.selectFolder) { dlgAlert('Loading a folder requires Electron.'); return; }
+    try {
+      const f = await window.api.selectFolder();
+      if (!f) return;
+      const list = await window.api.listImages(f);
+      if (list.length === 0) { dlgAlert('No images found in that folder.'); return; }
+      if (onSetImages) onSetImages(list);
+    } catch (e) {
+      console.error('caption load folder failed', e);
+      dlgAlert('Could not load folder: ' + e.message);
+    }
+  };  const closeSteer = () => {
     persistSteering(instructions.trim());
     setInstructions(instructions.trim());
     setSteerOpen(false);
@@ -696,6 +708,9 @@ export default function CaptionTab({ images, onOpenSettings }) {
       {/* top toolbar */}
       <div className="toolbar">
         <div className="toolbar-group">
+          <button className="btn btn-primary" onClick={loadFolder}>📁 Load Folder</button>
+        </div>
+        <div className="toolbar-group">
           <span className="toolbar-label">Batch</span>
           {[{ id: 'all', label: 'Both' }, ...VIEW_MODES].map((m) => (
             <button key={m.id} className={`aspect-btn ${batchScope === m.id ? 'active' : ''}`} onClick={() => setBatchScope(m.id)}>{m.label}</button>
@@ -735,7 +750,7 @@ export default function CaptionTab({ images, onOpenSettings }) {
       </div>
 
       {images.length === 0 ? (
-        <div className="empty"><h3>No cropped images yet</h3><p>Go to the Crop tab, set crops and press GO — the processed images appear here automatically.</p></div>
+        <div className="empty"><h3>No cropped images yet</h3><p>Load a folder with cropped images directly, or go to the Crop tab, set crops and press GO.</p><p><button className="btn btn-primary" onClick={loadFolder}>📁 Load Folder</button></p></div>
       ) : (
         <div className="cap-workspace">
           {/* left: queue sidebar */}
