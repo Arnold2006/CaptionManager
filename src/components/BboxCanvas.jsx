@@ -72,7 +72,7 @@ export default function BboxCanvas({ src, elements, selectedIdx, drawMode, onSel
   });
   const toBboxPt = (px, py, w, h) => ({ bx: (px / w) * 1000, by: (py / h) * 1000 });
 
-  // ---- paint ----
+  // ---- paint (memoized: only element/selection/size/preview changes repaint) ----
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !size) return;
@@ -126,7 +126,7 @@ export default function BboxCanvas({ src, elements, selectedIdx, drawMode, onSel
       ctx.strokeRect(x, y, w, h);
       ctx.restore();
     }
-  });
+  }, [elements, selectedIdx, preview, size, drawMode]);
 
   const pos = (e) => {
     const r = canvasRef.current.getBoundingClientRect();

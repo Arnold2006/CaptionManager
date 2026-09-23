@@ -56,6 +56,7 @@ npm run dist         # build + electron-builder → portable exe (win x64, model
 npm run setup-caption    # (re)download llama-server bin + VLM models
 npm run download-vlm     # VLM models only (progress bar, skip-if-complete)
 npm run download-llama   # llama.cpp binaries only
+npm test               # vitest unit suite (no Electron needed)
 ```
 
 ## Pinokio
@@ -65,12 +66,22 @@ Ships as a Pinokio 8 app (`pinokio.js`, `install.js`, `start.js`, `update.js`, `
 ## Project layout
 
 ```
-electron/         # main, preload, splash — IPC, batch pipeline, caption engine,
-                  # palette sampling, settings store, model downloader
-src/App.jsx       # Crop/Caption tabs + handoff + settings modal host
-src/components/   # ThumbnailGrid, Workspace, CropBox, BboxCanvas,
-                  # CaptionTab (3-col editor), SettingsModal, AutoTextarea, dialog
-scripts/          # model/llama-server download helpers
+electron/         # main (window lifecycle) + preload + splash
+  config.js       # all tunable constants (ports, temps, timeouts, sizes)
+  log.js          # debug log + crash/close diagnostics
+  images.js       # listing, thumbs, oriented previews, palette sampling
+  batch.js        # rotate → crop → lanczos-2× → convert pipeline
+  captions.js     # caption IPC (vision-model orchestration in captionServer.js)
+  models.js       # settings + first-launch model download IPC
+  updates.js      # GitHub version check (pure, unit-tested)
+  palette.js      # dominant-color quantization (pure, unit-tested)
+src/App.jsx       # tab shell + crop state + batch GO + settings host
+src/components/   # CropTab, ThumbnailGrid, Workspace, CropBox,
+                  # CaptionTab + ElementCard + PaletteField + BboxCanvas,
+                  # SettingsModal, AutoTextarea, ErrorBoundary, dialog
+src/lib/          # mapLimit (promise pool), caption (data helpers)
+test/             # vitest suite — `npm test`
+scripts/          # llama-server + VLM model download helpers
 models/           # local VLM models (gitignored: *.gguf)
 bin/              # llama-server binaries (gitignored, bundled in portable)
 ```

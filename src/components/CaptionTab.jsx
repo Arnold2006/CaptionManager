@@ -1,20 +1,22 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import BboxCanvas from './BboxCanvas.jsx';
 import AutoTextarea from './AutoTextarea.jsx';
+import ElementCard from './ElementCard.jsx';
+import PaletteField from './PaletteField.jsx';
 import ErrorBoundary from './ErrorBoundary.jsx';
 import { mapLimit } from '../lib/mapLimit.js';
+import { clone, emptyIdeogram } from '../lib/caption.js';
 import { useDialog } from './dialog.jsx';
 
 // Caption tab: 3-column Ideogram editor (queue | image + bbox overlay | text editor),
-// matching the Ideo4-Dataset-Manager layout. Plain text and Minimax H3 modes
-// use a simpler text editor in the right column.
+// matching the Ideo4-Dataset-Manager layout. Plain-text mode uses a simpler
+// text editor in the right column.
 
 const VIEW_MODES = [
   { id: 'ideogram', label: 'Ideogram 4' },
   { id: 'plain', label: 'Plain text' },
 ];
 
-const HEX_RE = /^#[0-9A-F]{6}$/;
 const STEER_KEY = 'captionmanager_steering';
 const loadSteering = () => {
   try { return (localStorage.getItem(STEER_KEY) || '').trim(); } catch (e) { return ''; }
@@ -22,20 +24,6 @@ const loadSteering = () => {
 const persistSteering = (val) => {
   try { localStorage.setItem(STEER_KEY, val); } catch (e) {}
 };
-const normHex = (c) => {
-  const v = String(c || '').trim().toUpperCase();
-  if (/^#[0-9A-F]{3}$/.test(v)) return '#' + [...v.slice(1)].map((x) => x + x).join('');
-  return HEX_RE.test(v) ? v : null;
-};
-const clone = (o) => JSON.parse(JSON.stringify(o));
-
-function emptyIdeogram() {
-  return {
-    high_level_description: '',
-    style_description: { aesthetics: '', lighting: '', medium: 'photograph', photo: '' },
-    compositional_deconstruction: { background: '', elements: [] },
-  };
-}
 
 export default function CaptionTab({ images, onOpenSettings, onSetImages }) {
   const { alert: dlgAlert } = useDialog();
@@ -328,20 +316,30 @@ export default function CaptionTab({ images, onOpenSettings, onSetImages }) {
     scheduleAutosave(selected.path);
   };
 
+  // Element-scoped patch for ElementCard.
+  const patchEl = (i, fn) => {
+    patchIdeogram((d) => { fn(d.compositional_deconstruction.elements[i]); });
+  };
+
   const elements = ideogramData?.compositional_deconstruction?.elements || [];
 
   const selectElement = (i) => {
     setSelElIdx(i);
     if (i === null) return;
-    // Make sure the card is rendered: open the Elements section + the card,
-    // then scroll it into view inside the editor column.
+    // Make sure the card is rendered: open the Elements section + the card.
+    // A layout effect below scrolls it into view once visible.
     setOpenSections((prev) => (prev.elements ? prev : { ...prev, elements: true }));
     setOpenEls((prev) => (prev[i] ? prev : { ...prev, [i]: true }));
-    setTimeout(() => {
-      const card = document.getElementById('cap-el-' + i);
-      if (card) card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    }, 60);
   };
+
+  // Scroll the selected card into view once it renders (replaces the old
+  // setTimeout: runs after paint with sections/cards already open).
+  useLayoutEffect(() => {
+    if (selElIdx === null || selElIdx === undefined) return;
+    if (!openSections.elements || !openEls[selElIdx]) return;
+    const card = document.getElementById('cap-el-' + selElIdx);
+    if (card) card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [selElIdx, openSections.elements, openEls, selectedPath]);
   const onBboxChange = (idx, bbox) => {
     patchIdeogram((d) => { d.compositional_deconstruction.elements[idx].bbox = bbox; });
   };
@@ -470,29 +468,6 @@ export default function CaptionTab({ images, onOpenSettings, onSetImages }) {
   const runningAny = selected ? ['ideogram', 'plain'].some((m) => res[`${m}_running`]) : false;
 
   // ---------- render helpers ----------
-  const chipRow = (colors, onRemove) => (
-    <div className="cap-pal-row">
-      {(colors || []).map((c, i) => (
-        <span className="cap-chip" key={i} title={c}>
-          <span className="cap-chip-sw" style={{ backgroundColor: c }} title={c} />
-          {c}
-          <button className="cap-chip-del" onClick={() => onRemove(i)} title="Remove">×</button>
-        </span>
-      ))}
-      {(!colors || colors.length === 0) && <span style={{ fontSize: 12, color: 'var(--muted)' }}>—</span>}
-    </div>
-  );
-
-  const addColorRow = (pickerId, onAdd) => (
-    <div className="cap-add-color">
-      <input type="color" id={pickerId} defaultValue="#888888" />
-      <button className="btn" style={{ fontSize: 12, padding: '5px 9px' }} onClick={() => {
-        const v = normHex(document.getElementById(pickerId)?.value);
-        if (v) onAdd(v);
-      }}>+ Add color</button>
-    </div>
-  );
-
   const renderIdeogramEditor = () => {
     if (!ideogramData) {
       return (
@@ -568,15 +543,17 @@ export default function CaptionTab({ images, onOpenSettings, onSetImages }) {
               </div>
               <div className="cap-field">
                 <label>Global color palette</label>
-                {chipRow(sd.color_palette, (i) => patchIdeogram((d) => { d.style_description.color_palette.splice(i, 1); }))}
-                {addColorRow('cap-global-picker', (v) => patchIdeogram((d) => {
-                  const s = d.style_description;
-                  if (!s.color_palette) s.color_palette = [];
-                  if (!s.color_palette.includes(v)) s.color_palette.push(v);
-                }))}
-                <div className="cap-add-row">
-                  <button className="cap-add-btn" onClick={sampleGlobalPalette}>🎨 Sample from image</button>
-                </div>
+                <PaletteField
+                  colors={sd.color_palette}
+                  onRemove={(i) => patchIdeogram((d) => { d.style_description.color_palette.splice(i, 1); })}
+                  onAdd={(v) => patchIdeogram((d) => {
+                    const s = d.style_description;
+                    if (!s.color_palette) s.color_palette = [];
+                    if (!s.color_palette.includes(v)) s.color_palette.push(v);
+                  })}
+                  onSample={sampleGlobalPalette}
+                  sampleLabel="🎨 Sample from image"
+                />
               </div>
             </div>
           )}
@@ -607,71 +584,26 @@ export default function CaptionTab({ images, onOpenSettings, onSetImages }) {
           {openSections.elements && (
             <div className="cap-sec-body">
               {elements.length === 0 && <div style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', padding: '4px 0 10px' }}>No elements yet</div>}
-              {elements.map((el, i) => {
-                const b = Array.isArray(el.bbox) ? el.bbox : [0, 0, 0, 0];
-                const open = !!openEls[i];
-                const preview = el.desc ? el.desc.slice(0, 40) + (el.desc.length > 40 ? '…' : '')
-                  : (el.type === 'text' && el.text ? `"${el.text}"` : el.type === 'obj' ? 'Object' : 'Text element');
-                return (
-                  <div className={`cap-el-card ${selElIdx === i ? 'hi' : ''}`} key={i} id={`cap-el-${i}`}>
-                    <div className="cap-el-hdr" onClick={() => {
-                      selectElement(i);
-                      setOpenEls((p) => ({ ...p, [i]: !open }));
-                      if (open && selElIdx === i) setSelElIdx(null);
-                    }}>
-                      <span className={`cap-badge ${el.type === 'obj' ? 'b-obj' : 'b-txt'}`}>{el.type === 'obj' ? 'Object' : 'Text'}</span>
-                      <span className="cap-el-title">{i + 1}. {preview}</span>
-                      <button className="cap-el-del" title="Delete element"
-                        onClick={(e) => { e.stopPropagation(); removeElement(i); }}>🗑</button>
-                      <span className={`cap-caret ${open ? 'open' : ''}`}>▾</span>
-                    </div>
-                    {open && (
-                      <div className="cap-el-body">
-                        <div className="cap-field">
-                          <label>Description</label>
-                          <AutoTextarea rows="3" value={el.desc || ''}
-                            onChange={(e) => patchIdeogram((d) => { d.compositional_deconstruction.elements[i].desc = e.target.value; })} />
-                        </div>
-                        {el.type === 'text' && (
-                          <div className="cap-field">
-                            <label>Exact text string</label>
-                            <input type="text" value={el.text || ''}
-                              onChange={(e) => patchIdeogram((d) => { d.compositional_deconstruction.elements[i].text = e.target.value; })} />
-                          </div>
-                        )}
-                        <div className="cap-field">
-                          <label>Bounding box — [ymin, xmin, ymax, xmax] 0–1000</label>
-                          <div className="cap-bbox-grid">
-                            {['ymin', 'xmin', 'ymax', 'xmax'].map((k, j) => (
-                              <div className="cap-bbox-cell" key={k}>
-                                <label>{k}</label>
-                                <input type="text" value={b[j] ?? 0}
-                                  onChange={(e) => {
-                                    const v = Math.max(0, Math.min(1000, parseInt(e.target.value) || 0));
-                                    patchIdeogram((d) => { d.compositional_deconstruction.elements[i].bbox[j] = v; });
-                                  }} />
-                              </div>
-                            ))}
-                          </div>
-                          <div className="cap-hint">Tip: drag the box on the image to move it, drag a corner to resize. Ctrl+click cycles through stacked boxes.</div>
-                        </div>
-                        <div className="cap-field">
-                          <label>Element color palette</label>
-                          {chipRow(el.color_palette, (ci) => patchIdeogram((d) => { d.compositional_deconstruction.elements[i].color_palette.splice(ci, 1); }))}
-                          {addColorRow(`cap-elp-${i}`, (v) => patchIdeogram((d) => {
-                            const target = d.compositional_deconstruction.elements[i];
-                            if (!target.color_palette) target.color_palette = [];
-                            if (!target.color_palette.includes(v)) target.color_palette.push(v);
-                          }))}
-                          <div className="cap-add-row">
-                            <button className="cap-add-btn" onClick={() => sampleElementPalette(i)}>🎨 Sample from image box</button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+              {elements.map((el, i) => (
+                <ElementCard
+                  key={`${selected.path}-${i}`}
+                  el={el}
+                  index={i}
+                  selected={selElIdx === i}
+                  open={!!openEls[i]}
+                  onToggle={() => {
+                    selectElement(i);
+                    setOpenEls((p) => {
+                      const willOpen = !p[i];
+                      if (!willOpen && selElIdx === i) setSelElIdx(null);
+                      return { ...p, [i]: willOpen };
+                    });
+                  }}
+                  onDelete={() => removeElement(i)}
+                  patchEl={(fn) => patchEl(i, fn)}
+                  onSample={() => sampleElementPalette(i)}
+                />
+              ))}
               <div className="cap-add-row">
                 <button className="cap-add-btn" onClick={() => addElement('obj')}>＋ Add object</button>
                 <button className="cap-add-btn" onClick={() => addElement('text')}>＋ Add text</button>
