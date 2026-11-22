@@ -12,6 +12,7 @@ const { GENERATION_SCHEMA, TEXT_VERIFY_SCHEMA } = require('./captionSchema');
 const { normalizeCaption, serializeCaption } = require('./captionNormalize');
 const { validateCaption } = require('./captionValidate');
 const { buildExtrasInstruction, applyTriggerWord, applyPlainTrigger } = require('./captionOptions');
+const { debugLog } = require('./log');
 const { MODEL_FILE, MMPROJ_FILE } = require('./modelInfo');
 const { resolveModelsDir } = require('./settings');
 const {
@@ -246,9 +247,9 @@ function applySteeringPostProcess(caption, instructions) {
 function buildIdeogramMessages(imageBase64, instructions, lastErrors, dims, promptOptions, triggerWord) {
   const steering = (instructions || '').trim();
   const extras = buildExtrasInstruction(promptOptions, triggerWord);
-  const sysPrompt = (steering
+  const sysPrompt = steering
     ? IDEOGRAM_SYSTEM_PROMPT + '\n\nCRITICAL — User steering instructions (MUST follow exactly, takes precedence over defaults; applies to ALL fields, not just style):\n' + steering
-    : IDEOGRAM_SYSTEM_PROMPT) + (extras ? '\n\n' + extras : '');
+    : IDEOGRAM_SYSTEM_PROMPT;
   const styleNote = '\n\nYou MUST always include the "style_description" object with ALL fields, in order: aesthetics, lighting, medium, photo, art_style, color_palette. Give every field a rich, specific value — never an empty string. "medium" is "photograph" for photos, otherwise the broad type (illustration, painting, 3d_render, …). Fill in BOTH "photo" (camera/lens details) and "art_style" (technique, texture); the pipeline keeps the one matching "medium".';
   const messages = [{ role: 'system', content: sysPrompt + styleNote }];
   const errorSuffix = lastErrors.length > 0
@@ -267,8 +268,8 @@ function buildIdeogramMessages(imageBase64, instructions, lastErrors, dims, prom
       {
         type: 'text',
         text: (steering
-          ? `Write a long detailed description for this image.${aspectLine(dims)} You MUST obey these user instructions exactly: ${steering}${prefixRule} Respond with ONLY the Ideogram 4 JSON caption object for it — a single JSON object and nothing else.`
-          : `Write a long detailed description for this image.${aspectLine(dims)} Respond with ONLY the Ideogram 4 JSON caption object for it — a single JSON object and nothing else.`) + errorSuffix
+          ? `Write a long detailed description for this image.${aspectLine(dims)} You MUST obey these user instructions exactly: ${steering}${prefixRule}${extras ? ' ' + extras : ''} Respond with ONLY the Ideogram 4 JSON caption object for it — a single JSON object and nothing else.`
+          : `Write a long detailed description for this image.${aspectLine(dims)}${extras ? ' ' + extras : ''} Respond with ONLY the Ideogram 4 JSON caption object for it — a single JSON object and nothing else.`) + errorSuffix
       }
     ]
   });
@@ -371,6 +372,7 @@ function parseJsonLoose(text) {
 }
 
 async function generateIdeogram(url, imageBase64, instructions, dims, promptOptions, triggerWord) {
+  debugLog('caption prompt extras (ideogram):', buildExtrasInstruction(promptOptions, triggerWord) || '(none)');
   let lastErrors = [];
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     const messages = buildIdeogramMessages(imageBase64, instructions, lastErrors, dims, promptOptions, triggerWord);
@@ -416,6 +418,7 @@ async function generateIdeogram(url, imageBase64, instructions, dims, promptOpti
 async function generatePlain(url, imageBase64, instructions, dims, promptOptions, triggerWord) {
   const steering = (instructions || '').trim();
   const extras = buildExtrasInstruction(promptOptions, triggerWord);
+  debugLog('caption prompt extras (plain):', extras || '(none)');
   const base = steering
     ? `Write a single detailed plain-text caption paragraph for this image.${aspectLine(dims)} Obey these user instructions exactly: ${steering}`
     : `Write a single detailed plain-text caption paragraph for this image.${aspectLine(dims)}`;
@@ -442,4 +445,4 @@ async function generate(imageBase64, { mode, instructions, dims, promptOptions, 
   return generateIdeogram(url, imageBase64, instructions, dims, promptOptions, triggerWord);
 }
 
-module.exports = { ensureServer, stopServer, status, generate, MODEL_FILE, MMPROJ_FILE, extractHldPrefix, findFreePort, servedModelMatches };
+module.exports = { ensureServer, stopServer, status, generate, buildIdeogramMessages, MODEL_FILE, MMPROJ_FILE, extractHldPrefix, findFreePort, servedModelMatches };

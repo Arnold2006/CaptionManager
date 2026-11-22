@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import CATALOG from '../electron/captionOptions.json';
 import { buildExtrasInstruction, normalizeOptionIds } from '../electron/captionOptions.js';
+import { buildIdeogramMessages } from '../electron/captionServer.js';
 
 describe('caption prompt extras catalogue', () => {
   it('has the 25 registry.py options with unique ids', () => {
@@ -52,5 +53,21 @@ describe('buildExtrasInstruction', () => {
       'PROMPT EXTRAS — follow every instruction below exactly:\n' +
       '- Include information about camera angle.'
     );
+  });
+
+  it('puts the tooltip instructions in the Ideogram caption prompt', () => {
+    const messages = buildIdeogramMessages(
+      'data:image/jpeg;base64,AAAA',
+      '',
+      [],
+      { width: 100, height: 100 },
+      ['cameraAngle', 'ages', 'callByName'],
+      'ohwx'
+    );
+    const userText = messages[1].content.find((part) => part.type === 'text').text;
+    expect(userText).toContain('Include information about camera angle.');
+    expect(userText).toContain('Include information about the ages of any people/characters when applicable.');
+    expect(userText).toContain('refer to them as ohwx.');
+    expect(userText).not.toContain('{name}');
   });
 });
