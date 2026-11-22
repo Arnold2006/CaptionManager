@@ -206,3 +206,20 @@ body { font-family: Inter, system-ui, Segoe UI, Roboto, sans-serif; background: 
 .cap-opt-label { display:block; font-size:13px; font-weight:600; line-height:1.3; }
 .cap-opt input:checked ~ span .cap-opt-label { color:var(--accent); }
 @media (max-width: 620px) { .cap-opts-grid { grid-template-columns:1fr; } }
+
+/* ---- Frontpage (static opening screen) ---- */
+.home { flex:1; min-height:0; overflow-y:auto; display:flex; align-items:center; justify-content:center; padding:40px 24px; background:radial-gradient(ellipse at center, #1a1d24 0%, #0d0f13 70%); }
+.home-card { width:100%; max-width:880px; display:flex; flex-direction:column; align-items:center; text-align:center; gap:10px; }
+.home-icon { width:56px; height:56px; border-radius:14px; box-shadow:0 8px 24px rgba(0,0,0,0.45); }
+.home-title { font-size:30px; font-weight:800; letter-spacing:-0.01em; }
+.home-tagline { font-size:14px; color:var(--muted); margin-bottom:18px; }
+.home-doors { display:grid; grid-template-columns:1fr 1fr; gap:16px; width:100%; }
+.home-door { display:flex; flex-direction:column; align-items:flex-start; gap:6px; text-align:left; padding:26px 24px; border-radius:14px; cursor:pointer; background:var(--panel); border:1px solid var(--border); color:var(--text); font-family:inherit; transition:border-color 0.15s, transform 0.15s, background 0.15s; }
+.home-door:hover { border-color:var(--accent); background:var(--panel2); transform:translateY(-2px); }
+.home-door:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+.home-door-icon { font-size:26px; }
+.home-door-name { font-size:20px; font-weight:700; }
+.home-door-desc { font-size:13px; color:var(--muted); line-height:1.5; }
+.home-door-go { margin-top:10px; font-size:13px; font-weight:700; color:var(--accent); }
+.home-hint { margin-top:18px; font-size:12px; color:var(--muted); }
+@media (max-width: 720px) { .home { padding:24px 16px; } .home-doors { grid-template-columns:1fr; } }

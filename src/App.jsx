@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import HomeTab from './components/HomeTab.jsx';
 import CropTab from './components/CropTab.jsx';
 import CaptionTab from './components/CaptionTab.jsx';
 import SettingsModal from './components/SettingsModal.jsx';
@@ -15,7 +16,7 @@ export default function App() {
   const [zoom, setZoom] = useState(1);
   const [batch, setBatch] = useState({ running:false, progress:null, result:null });
   const [dragOver, setDragOver] = useState(false);
-  const [activeTab, setActiveTab] = useState('crop'); // 'crop' | 'caption'
+  const [activeTab, setActiveTab] = useState('home'); // 'home' | 'crop' | 'caption'
   const [captionImages, setCaptionImages] = useState([]);
   const [captionNotice, setCaptionNotice] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -115,6 +116,8 @@ export default function App() {
 
   const handleDrop = async (e) => {
     e.preventDefault(); setDragOver(false);
+    // The frontpage has no picker and no grid: drops there do nothing.
+    if (activeTab === 'home') return;
     // Only accept real OS file/folder drops. Internal drags (e.g. an
     // accidental thumbnail drag) carry text/uri-list but no Files — ignore
     // them so the current folder is never wiped by mistake.
@@ -338,10 +341,15 @@ export default function App() {
         {activeTab === 'crop' && (
           <button className="btn btn-primary" onClick={pickFolder}>📁 Open Folder</button>
         )}
-        <div style={{display:'flex', gap:6}} role="tablist" aria-label="Tool tabs">
-          <button className={`aspect-btn ${activeTab==='crop'?'active':''}`} role="tab" aria-selected={activeTab==='crop'} onClick={()=>setActiveTab('crop')}>✂️ Crop</button>
-          <button className={`aspect-btn ${activeTab==='caption'?'active':''}`} role="tab" aria-selected={activeTab==='caption'} onClick={()=>setActiveTab('caption')}>💬 Caption{captionImages.length>0?` (${captionImages.length})`:''}</button>
-        </div>
+        {activeTab !== 'home' && (
+          <button className="btn btn-ghost" style={{fontSize:12, padding:'6px 10px'}} onClick={()=>setActiveTab('home')} title="Back to frontpage">⌂ Home</button>
+        )}
+        {activeTab !== 'home' && (
+          <div style={{display:'flex', gap:6}} role="tablist" aria-label="Tool tabs">
+            <button className={`aspect-btn ${activeTab==='crop'?'active':''}`} role="tab" aria-selected={activeTab==='crop'} onClick={()=>setActiveTab('crop')}>✂️ Crop</button>
+            <button className={`aspect-btn ${activeTab==='caption'?'active':''}`} role="tab" aria-selected={activeTab==='caption'} onClick={()=>setActiveTab('caption')}>💬 Caption{captionImages.length>0?` (${captionImages.length})`:''}</button>
+          </div>
+        )}
         {activeTab === 'crop' && (
           <>
             <div className="folder-path" title={folder||'No folder selected'}>{folder || 'No folder selected — drag & drop a folder here'} {!isElectron && <span style={{color:'var(--accent)', fontWeight:600}}> (Browser mode — use folder picker)</span>}</div>
@@ -371,7 +379,9 @@ export default function App() {
         </div>
       )}
 
-      {activeTab==='caption' ? (
+      {activeTab==='home' ? (
+        <HomeTab onNavigate={setActiveTab} />
+      ) : activeTab==='caption' ? (
         <div className="main" style={{display:'flex', flexDirection:'column'}}>
           <CaptionTab images={captionImages} onOpenSettings={()=>setSettingsOpen(true)} onSetImages={(list)=>{ setCaptionImages(list); setCaptionNotice(null); }} />
         </div>
