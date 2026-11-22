@@ -3,13 +3,18 @@
 const path = require('path');
 const { captionMax, previewQuality } = require('./config');
 const { cropParams } = require('./images');
+const { gridSvg } = require('./gridOverlay');
 const { debugLog } = require('./log');
 
 let sharp;
 try { sharp = require('sharp'); } catch (e) { console.warn('sharp not available', e && e.message); }
 
 // Build the downscaled vision input; returns base64 + TRUE (post-crop) dims.
-async function buildVisionInput(imagePath, crop) {
+// `grid` draws the labeled 0-1000 coordinate grid (Ideogram mode) so bbox edges
+// can be read off gridlines instead of guessed. verifyBase64 is always the
+// clean, grid-free copy: the text-verification pass must never confirm grid
+// numbers as if they were text in the picture.
+async function buildVisionInput(imagePath, crop, { grid = false } = {}) {
   const meta = await sharp(imagePath).rotate().metadata();
   let pipeline = sharp(imagePath).rotate();
   let width = meta.width, height = meta.height;
@@ -19,7 +24,14 @@ async function buildVisionInput(imagePath, crop) {
     width = rect.width; height = rect.height;
   }
   const buf = await pipeline.resize(captionMax, captionMax, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: previewQuality }).toBuffer();
-  return { base64: `data:image/jpeg;base64,${buf.toString('base64')}`, width, height };
+  const verifyBase64 = `data:image/jpeg;base64,${buf.toString('base64')}`;
+  if (!grid) return { base64: verifyBase64, verifyBase64, width, height };
+  const sized = await sharp(buf).metadata();
+  const gridded = await sharp(buf)
+    .composite([{ input: Buffer.from(gridSvg(sized.width, sized.height)), top: 0, left: 0 }])
+    .jpeg({ quality: previewQuality })
+    .toBuffer();
+  return { base64: `data:image/jpeg;base64,${gridded.toString('base64')}`, verifyBase64, width, height };
 }
 
 function registerCaptions({ ipcMain, getMainWindow, captionServer }) {
@@ -45,7 +57,7 @@ function registerCaptions({ ipcMain, getMainWindow, captionServer }) {
     if (!imagePath) throw new Error('No image path');
     const fsp = require('fs/promises');
     await fsp.access(imagePath);
-    const { base64, width, height } = await buildVisionInput(imagePath, crop);
+    const { base64, verifyBase64, width, height } = await buildVisionInput(imagePath, crop, { grid: mode !== 'plain' });
     const { BrowserWindow } = require('electron');
     const win = BrowserWindow.fromWebContents(event.sender);
     if (win) win.webContents.send('caption-progress', { type: 'caption-start', path: imagePath, mode });
@@ -53,7 +65,7 @@ function registerCaptions({ ipcMain, getMainWindow, captionServer }) {
       '| steering:', JSON.stringify(String(instructions || '').trim().slice(0, 200)) || '(none)',
       '| details:', JSON.stringify(promptOptions || []),
       '| trigger:', JSON.stringify(String(triggerWord || '').trim()));
-    const result = await captionServer.generate(base64, { mode, instructions, promptOptions, triggerWord, dims: { width, height } });
+    const result = await captionServer.generate(base64, { mode, instructions, promptOptions, triggerWord, dims: { width, height }, verifyImageBase64: verifyBase64 });
     if (win) win.webContents.send('caption-progress', { type: 'caption-done', path: imagePath, mode, ok: result.ok });
     return { ...result, width, height };
   });

@@ -185,6 +185,12 @@ function aspectLine(dims) {
   return ` The image is ${w} wide × ${h} tall (${orient}, aspect ratio ${ratio.toFixed(2)}). Bounding-box coordinates are normalized to this frame, 0–1000 on each axis independently: x=0 is the left edge and x=1000 the right edge, y=0 is the top edge and y=1000 the bottom edge.`;
 }
 
+// Ideogram mode renders a labeled 0-1000 grid on the vision input; tell the
+// model to read box edges off it rather than recall coordinates.
+function gridLine() {
+  return ' The picture has a labeled coordinate grid on it: cyan lines every 100 units with the values printed along the top edge (x) and the left edge (y). Read every bbox edge off that grid; do not estimate coordinates and do not describe or transcribe the grid itself.';
+}
+
 function extractHldPrefix(instructions) {
   const s = (instructions || '').trim();
   if (!s) return null;
@@ -268,8 +274,8 @@ function buildIdeogramMessages(imageBase64, instructions, lastErrors, dims, prom
       {
         type: 'text',
         text: (steering
-          ? `Write a long detailed description for this image.${aspectLine(dims)} You MUST obey these user instructions exactly: ${steering}${prefixRule}${extras ? ' ' + extras : ''} Respond with ONLY the Ideogram 4 JSON caption object for it — a single JSON object and nothing else.`
-          : `Write a long detailed description for this image.${aspectLine(dims)}${extras ? ' ' + extras : ''} Respond with ONLY the Ideogram 4 JSON caption object for it — a single JSON object and nothing else.`) + errorSuffix
+          ? `Write a long detailed description for this image.${aspectLine(dims)}${gridLine()} You MUST obey these user instructions exactly: ${steering}${prefixRule}${extras ? ' ' + extras : ''} Respond with ONLY the Ideogram 4 JSON caption object for it — a single JSON object and nothing else.`
+          : `Write a long detailed description for this image.${aspectLine(dims)}${gridLine()}${extras ? ' ' + extras : ''} Respond with ONLY the Ideogram 4 JSON caption object for it — a single JSON object and nothing else.`) + errorSuffix
       }
     ]
   });
@@ -371,7 +377,7 @@ function parseJsonLoose(text) {
   return { ok: false };
 }
 
-async function generateIdeogram(url, imageBase64, instructions, dims, promptOptions, triggerWord) {
+async function generateIdeogram(url, imageBase64, instructions, dims, promptOptions, triggerWord, verifyImageBase64) {
   debugLog('caption prompt extras (ideogram):', buildExtrasInstruction(promptOptions, triggerWord) || '(none)');
   let lastErrors = [];
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
@@ -394,7 +400,9 @@ async function generateIdeogram(url, imageBase64, instructions, dims, promptOpti
     const steeringResult = applySteeringPostProcess(normalized.value, instructions);
     const triggerResult = applyTriggerWord(normalized.value, triggerWord);
     normalized.value = triggerResult.caption;
-    const verifyResult = await verifyTextElements(url, imageBase64, normalized.value);
+    // Verify against the grid-free copy so grid numbers can never be confirmed
+    // as if they were text rendered in the picture.
+    const verifyResult = await verifyTextElements(url, verifyImageBase64 || imageBase64, normalized.value);
     const recheck = validateCaption(normalized.value);
     if (!recheck.valid) {
       lastErrors = [...recheck.errors, 'create "text" elements ONLY for clearly legible on-image text; describe blurry/unreadable signs as "obj" elements instead'];
@@ -439,10 +447,10 @@ async function generatePlain(url, imageBase64, instructions, dims, promptOptions
   }
 }
 
-async function generate(imageBase64, { mode, instructions, dims, promptOptions, triggerWord }) {
+async function generate(imageBase64, { mode, instructions, dims, promptOptions, triggerWord, verifyImageBase64 }) {
   const { url } = await ensureServer();
   if (mode === 'plain') return generatePlain(url, imageBase64, instructions, dims, promptOptions, triggerWord);
-  return generateIdeogram(url, imageBase64, instructions, dims, promptOptions, triggerWord);
+  return generateIdeogram(url, imageBase64, instructions, dims, promptOptions, triggerWord, verifyImageBase64);
 }
 
 module.exports = { ensureServer, stopServer, status, generate, buildIdeogramMessages, MODEL_FILE, MMPROJ_FILE, extractHldPrefix, findFreePort, servedModelMatches };
