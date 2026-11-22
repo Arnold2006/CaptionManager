@@ -39,7 +39,7 @@ function registerCaptions({ ipcMain, getMainWindow, captionServer }) {
     return info;
   });
 
-  ipcMain.handle('caption-generate', async (event, { imagePath, crop, mode, instructions }) => {
+  ipcMain.handle('caption-generate', async (event, { imagePath, crop, mode, instructions, promptOptions, triggerWord }) => {
     needBackend();
     if (!sharp) throw new Error('sharp missing');
     if (!imagePath) throw new Error('No image path');
@@ -50,8 +50,10 @@ function registerCaptions({ ipcMain, getMainWindow, captionServer }) {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (win) win.webContents.send('caption-progress', { type: 'caption-start', path: imagePath, mode });
     debugLog('caption generate', mode, path.basename(imagePath),
-      '| steering:', JSON.stringify(String(instructions || '').trim().slice(0, 200)) || '(none)');
-    const result = await captionServer.generate(base64, { mode, instructions, dims: { width, height } });
+      '| steering:', JSON.stringify(String(instructions || '').trim().slice(0, 200)) || '(none)',
+      '| details:', JSON.stringify(promptOptions || []),
+      '| trigger:', JSON.stringify(String(triggerWord || '').trim()));
+    const result = await captionServer.generate(base64, { mode, instructions, promptOptions, triggerWord, dims: { width, height } });
     if (win) win.webContents.send('caption-progress', { type: 'caption-done', path: imagePath, mode, ok: result.ok });
     return { ...result, width, height };
   });

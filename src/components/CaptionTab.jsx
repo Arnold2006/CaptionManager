@@ -7,6 +7,7 @@ import ErrorBoundary from './ErrorBoundary.jsx';
 import { mapLimit } from '../lib/mapLimit.js';
 import { clone, emptyIdeogram } from '../lib/caption.js';
 import { useDialog } from './dialog.jsx';
+import CAPTION_OPTIONS from '../../electron/captionOptions.json';
 
 // Caption tab: 3-column Ideogram editor (queue | image + bbox overlay | text editor),
 // matching the Ideo4-Dataset-Manager layout. Plain-text mode uses a simpler
@@ -25,12 +26,30 @@ const persistSteering = (val) => {
   try { localStorage.setItem(STEER_KEY, val); } catch (e) {}
 };
 
+const EXTRAS_KEY = 'captionmanager_prompt_extras';
+const emptyExtras = () => ({ triggerWord: '', options: {} });
+const loadExtras = () => {
+  try {
+    const v = JSON.parse(localStorage.getItem(EXTRAS_KEY) || 'null');
+    if (!v || typeof v !== 'object') return emptyExtras();
+    return {
+      triggerWord: typeof v.triggerWord === 'string' ? v.triggerWord : '',
+      options: v.options && typeof v.options === 'object' ? v.options : {},
+    };
+  } catch (e) { return emptyExtras(); }
+};
+const persistExtras = (val) => {
+  try { localStorage.setItem(EXTRAS_KEY, JSON.stringify(val)); } catch (e) {}
+};
+
 export default function CaptionTab({ images, onOpenSettings, onSetImages }) {
   const { alert: dlgAlert } = useDialog();
   const [batchScope, setBatchScope] = useState('all');
   const [viewMode, setViewMode] = useState('ideogram');
   const [instructions, setInstructions] = useState(() => loadSteering());
   const [steerOpen, setSteerOpen] = useState(false);
+  const [extras, setExtras] = useState(() => loadExtras());
+  const [extrasOpen, setExtrasOpen] = useState(false);
   const [server, setServer] = useState(null);
   const [serverMsg, setServerMsg] = useState('');
   const [running, setRunning] = useState(false);
@@ -51,6 +70,9 @@ export default function CaptionTab({ images, onOpenSettings, onSetImages }) {
   const prevPathRef = useRef(null);
   const saveTimerRef = useRef(null);
   const isElectron = !!(typeof window !== 'undefined' && window.api?.captionGenerate);
+  const selectedOptions = CAPTION_OPTIONS.filter((o) => extras.options?.[o.id]).map((o) => o.id);
+  const triggerWord = extras.triggerWord.trim();
+  const extrasActive = selectedOptions.length > 0 || triggerWord.length > 0;
 
   const selected = images.find((i) => i.path === selectedPath) || images[0] || null;
   useEffect(() => {
@@ -135,6 +157,24 @@ export default function CaptionTab({ images, onOpenSettings, onSetImages }) {
   const onSteerInput = (v) => {
     setInstructions(v);
     persistSteering(v.trim());
+  };
+  const setTriggerWord = (v) => setExtras((prev) => {
+    const next = { ...prev, triggerWord: v };
+    persistExtras(next);
+    return next;
+  });
+  const toggleOption = (id) => setExtras((prev) => {
+    const options = { ...prev.options };
+    if (options[id]) delete options[id];
+    else options[id] = true;
+    const next = { ...prev, options };
+    persistExtras(next);
+    return next;
+  });
+  const clearExtras = () => {
+    const next = emptyExtras();
+    setExtras(next);
+    persistExtras(next);
   };
 
   useEffect(() => { editsRef.current = edits; }, [edits]);
@@ -226,7 +266,7 @@ export default function CaptionTab({ images, onOpenSettings, onSetImages }) {
   const generateOne = async (imgPath, mode) => {
     setResults((prev) => ({ ...prev, [imgPath]: { ...(prev[imgPath] || {}), [mode]: null, error: null, [`${mode}_running`]: true } }));
     try {
-      let res = await window.api.captionGenerate({ imagePath: imgPath, crop: null, mode, instructions });
+      let res = await window.api.captionGenerate({ imagePath: imgPath, crop: null, mode, instructions, promptOptions: selectedOptions, triggerWord });
       if (!res.ok) throw new Error(res.error || 'caption failed');
       // Replace the model's guessed palettes with colors sampled from the
       // actual image pixels (per bbox region + whole image).
@@ -443,6 +483,10 @@ export default function CaptionTab({ images, onOpenSettings, onSetImages }) {
   };
   useEffect(() => {
     const onKey = (e) => {
+      if (extrasOpen) {
+        if (e.key === 'Escape') setExtrasOpen(false);
+        return;
+      }
       if (steerOpen) {
         if (e.key === 'Escape') closeSteer();
         if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); closeSteer(); }
@@ -664,6 +708,11 @@ export default function CaptionTab({ images, onOpenSettings, onSetImages }) {
           </button>
         </div>
         <div className="toolbar-group">
+          <button className={`btn ${extrasActive ? 'btn-primary' : ''}`} onClick={() => setExtrasOpen(true)} title="Trigger word and extra details the AI must include in every caption">
+            🧩 Prompt extras{extrasActive ? ' • on' : ''}
+          </button>
+        </div>
+        <div className="toolbar-group">
           <button className="btn btn-primary" onClick={generateAll} disabled={running || images.length === 0}>
             {running ? `Captioning ${progress?.done || 0}/${progress?.total || 0}…` : '✨ Caption all'}
           </button>
@@ -685,6 +734,16 @@ export default function CaptionTab({ images, onOpenSettings, onSetImages }) {
         {instructions.trim() && (
           <span style={{ color: 'var(--accent)' }} title={instructions.trim()}>
             🎛 steering: “{(instructions.trim().length > 80 ? instructions.trim().slice(0, 80) + '…' : instructions.trim())}”
+          </span>
+        )}
+        {triggerWord && (
+          <span style={{ color: 'var(--accent)' }} title={'Trigger word prepended to every caption: ' + triggerWord}>
+            🏷 trigger: “{triggerWord}”
+          </span>
+        )}
+        {selectedOptions.length > 0 && (
+          <span style={{ color: 'var(--accent)' }} title={CAPTION_OPTIONS.filter((o) => extras.options?.[o.id]).map((o) => o.label).join(', ')}>
+            🧩 {selectedOptions.length} extra detail{selectedOptions.length === 1 ? '' : 's'}
           </span>
         )}
         {progress && <span>{progress.cancelled ? 'Cancelled' : progress.finished ? 'Done' : progress.current || ''}</span>}
@@ -741,6 +800,11 @@ export default function CaptionTab({ images, onOpenSettings, onSetImages }) {
                 {res[viewMode]?.steering_used && (
                   <span style={{ fontSize: 11, color: 'var(--accent)' }} title="This caption was generated with steering instructions active">
                     🎛 steered
+                  </span>
+                )}
+                {res[viewMode]?.trigger_used && (
+                  <span style={{ fontSize: 11, color: 'var(--accent)' }} title="Trigger word applied to this caption">
+                    🏷 trigger
                   </span>
                 )}
                 {viewMode === 'ideogram' && res.ideogram?.palettes_total > 0 && (
@@ -811,6 +875,48 @@ export default function CaptionTab({ images, onOpenSettings, onSetImages }) {
               <span className="cap-steer-status">{instructions.trim() ? 'Active: ' + (instructions.trim().length > 60 ? instructions.trim().slice(0, 60) + '…' : instructions.trim()) : 'No steering (empty)'}</span>
               <button className="btn btn-ghost" onClick={clearSteer}>🗑 Clear</button>
               <button className="btn btn-primary" onClick={closeSteer}>✓ Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {extrasOpen && (
+        <div className="cap-steer-overlay" onClick={(e) => { if (e.target === e.currentTarget) setExtrasOpen(false); }}>
+          <div className="cap-steer-modal" style={{ width: 660 }}>
+            <div className="cap-steer-hdr">
+              <span>🧩 Prompt extras</span>
+              <button className="btn btn-ghost" style={{ padding: '3px 8px' }} onClick={() => setExtrasOpen(false)}>✕</button>
+            </div>
+            <div className="cap-steer-body cap-opts-body">
+              <p>Add details the AI must include in every caption it writes. The trigger word is prepended to the generated caption; the checked details go into the captioning prompt.</p>
+              <div className="cap-field">
+                <label>Trigger word</label>
+                <input type="text" value={extras.triggerWord} placeholder="e.g. ohwx"
+                  onChange={(e) => setTriggerWord(e.target.value)} />
+                <div className="cap-hint">Prepended once to the start of every generated caption (high_level_description in Ideogram mode, the paragraph in plain-text mode). Leave empty for none.</div>
+              </div>
+              <label>Details to include</label>
+              <div className="cap-opts-grid">
+                {CAPTION_OPTIONS.map((opt) => (
+                  <label key={opt.id} className="cap-opt">
+                    <input type="checkbox" checked={!!extras.options?.[opt.id]} onChange={() => toggleOption(opt.id)} />
+                    <span>
+                      <span className="cap-opt-label">{opt.label}</span>
+                      <span className="cap-opt-hint">{opt.hint}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+              <div className="cap-hint">Applies to single and batch captions. Changes are saved automatically.</div>
+            </div>
+            <div className="cap-steer-ftr">
+              <span className="cap-steer-status">
+                {extrasActive
+                  ? [triggerWord ? `🏷 ${triggerWord}` : '', selectedOptions.length ? `🧩 ${selectedOptions.length} detail${selectedOptions.length === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ')
+                  : 'No prompt extras'}
+              </span>
+              <button className="btn btn-ghost" onClick={clearExtras}>🗑 Clear</button>
+              <button className="btn btn-primary" onClick={() => setExtrasOpen(false)}>✓ Done</button>
             </div>
           </div>
         </div>

@@ -11,6 +11,7 @@ const { IDEOGRAM_SYSTEM_PROMPT, PLAIN_SYSTEM_PROMPT } = require('./captionPrompt
 const { GENERATION_SCHEMA, TEXT_VERIFY_SCHEMA } = require('./captionSchema');
 const { normalizeCaption, serializeCaption } = require('./captionNormalize');
 const { validateCaption } = require('./captionValidate');
+const { buildExtrasInstruction, applyTriggerWord, applyPlainTrigger } = require('./captionOptions');
 const { MODEL_FILE, MMPROJ_FILE } = require('./modelInfo');
 const { resolveModelsDir } = require('./settings');
 const {
@@ -242,11 +243,12 @@ function applySteeringPostProcess(caption, instructions) {
   return { applied: true, prefix };
 }
 
-function buildIdeogramMessages(imageBase64, instructions, lastErrors, dims) {
+function buildIdeogramMessages(imageBase64, instructions, lastErrors, dims, promptOptions) {
   const steering = (instructions || '').trim();
-  const sysPrompt = steering
+  const extras = buildExtrasInstruction(promptOptions);
+  const sysPrompt = (steering
     ? IDEOGRAM_SYSTEM_PROMPT + '\n\nCRITICAL — User steering instructions (MUST follow exactly, takes precedence over defaults; applies to ALL fields, not just style):\n' + steering
-    : IDEOGRAM_SYSTEM_PROMPT;
+    : IDEOGRAM_SYSTEM_PROMPT) + (extras ? '\n\n' + extras : '');
   const styleNote = '\n\nYou MUST always include the "style_description" object with ALL fields, in order: aesthetics, lighting, medium, photo, art_style, color_palette. Give every field a rich, specific value — never an empty string. "medium" is "photograph" for photos, otherwise the broad type (illustration, painting, 3d_render, …). Fill in BOTH "photo" (camera/lens details) and "art_style" (technique, texture); the pipeline keeps the one matching "medium".';
   const messages = [{ role: 'system', content: sysPrompt + styleNote }];
   const errorSuffix = lastErrors.length > 0
@@ -368,10 +370,10 @@ function parseJsonLoose(text) {
   return { ok: false };
 }
 
-async function generateIdeogram(url, imageBase64, instructions, dims) {
+async function generateIdeogram(url, imageBase64, instructions, dims, promptOptions, triggerWord) {
   let lastErrors = [];
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    const messages = buildIdeogramMessages(imageBase64, instructions, lastErrors, dims);
+    const messages = buildIdeogramMessages(imageBase64, instructions, lastErrors, dims, promptOptions);
     let text;
     try {
       text = await chatCompletion(url, {
@@ -388,6 +390,8 @@ async function generateIdeogram(url, imageBase64, instructions, dims) {
     const { valid, errors } = validateCaption(normalized.value);
     if (!valid) { lastErrors = errors; continue; }
     const steeringResult = applySteeringPostProcess(normalized.value, instructions);
+    const triggerResult = applyTriggerWord(normalized.value, triggerWord);
+    normalized.value = triggerResult.caption;
     const verifyResult = await verifyTextElements(url, imageBase64, normalized.value);
     const recheck = validateCaption(normalized.value);
     if (!recheck.valid) {
@@ -401,31 +405,41 @@ async function generateIdeogram(url, imageBase64, instructions, dims) {
       valid: true, attempts: attempt,
       steering_applied: steeringResult.applied || false,
       steering_used: ((instructions || '').trim().length > 0),
+      trigger_used: triggerResult.used || false,
+      trigger_applied: triggerResult.applied || false,
       text_verified: verifyResult.checked || false,
     };
   }
   return { ok: false, mode: 'ideogram', error: `Could not produce a valid caption after ${MAX_ATTEMPTS} attempts.`, errors: lastErrors };
 }
 
-async function generatePlain(url, imageBase64, instructions, dims) {
+async function generatePlain(url, imageBase64, instructions, dims, promptOptions, triggerWord) {
   const steering = (instructions || '').trim();
-  const userText = steering
-    ? `Write a single detailed plain-text caption paragraph for this image.${aspectLine(dims)} Obey these user instructions exactly: ${steering} Output ONLY the caption, nothing else.`
-    : `Write a single detailed plain-text caption paragraph for this image.${aspectLine(dims)} Output ONLY the caption, nothing else.`;
+  const extras = buildExtrasInstruction(promptOptions);
+  const base = steering
+    ? `Write a single detailed plain-text caption paragraph for this image.${aspectLine(dims)} Obey these user instructions exactly: ${steering}`
+    : `Write a single detailed plain-text caption paragraph for this image.${aspectLine(dims)}`;
+  const userText = base + (extras ? ` ${extras}` : '') + ' Output ONLY the caption, nothing else.';
   const messages = buildFreeMessages(PLAIN_SYSTEM_PROMPT, imageBase64, userText);
   try {
-    const text = (await chatCompletion(url, { messages, temperature: captionFirstTemp, topP: captionTopP, maxTokens: plainMaxTokens })).trim();
-    if (!text) return { ok: false, mode: 'plain', error: 'empty response from model' };
-    return { ok: true, mode: 'plain', text, steering_used: (steering.length > 0) };
+    const raw = (await chatCompletion(url, { messages, temperature: captionFirstTemp, topP: captionTopP, maxTokens: plainMaxTokens })).trim();
+    if (!raw) return { ok: false, mode: 'plain', error: 'empty response from model' };
+    const triggered = applyPlainTrigger(raw, triggerWord);
+    return {
+      ok: true, mode: 'plain', text: triggered.text,
+      steering_used: (steering.length > 0),
+      trigger_used: triggered.used || false,
+      trigger_applied: triggered.applied || false,
+    };
   } catch (err) {
     return { ok: false, mode: 'plain', error: String(err?.message || err) };
   }
 }
 
-async function generate(imageBase64, { mode, instructions, dims }) {
+async function generate(imageBase64, { mode, instructions, dims, promptOptions, triggerWord }) {
   const { url } = await ensureServer();
-  if (mode === 'plain') return generatePlain(url, imageBase64, instructions, dims);
-  return generateIdeogram(url, imageBase64, instructions, dims);
+  if (mode === 'plain') return generatePlain(url, imageBase64, instructions, dims, promptOptions, triggerWord);
+  return generateIdeogram(url, imageBase64, instructions, dims, promptOptions, triggerWord);
 }
 
 module.exports = { ensureServer, stopServer, status, generate, MODEL_FILE, MMPROJ_FILE, extractHldPrefix, findFreePort, servedModelMatches };

@@ -194,3 +194,16 @@ body { font-family: Inter, system-ui, Segoe UI, Roboto, sans-serif; background: 
 .cap-steer-body textarea:focus { outline:none; border-color:var(--accent); }
 .cap-steer-ftr { display:flex; align-items:center; gap:8px; padding:12px 18px; border-top:1px solid var(--border); }
 .cap-steer-status { font-size:12px; color:var(--muted); margin-right:auto; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:280px; }
+
+/* ---- Prompt extras modal (trigger word + detail checkboxes) ---- */
+.cap-steer-body input[type=text] { width:100%; font-size:13px; padding:8px 10px; background:var(--panel2); border:1px solid var(--border); color:var(--text); border-radius:8px; font-family:inherit; }
+.cap-steer-body input[type=text]:focus { outline:none; border-color:var(--accent); }
+.cap-opts-body { max-height:64vh; overflow-y:auto; }
+.cap-opts-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.cap-steer-body .cap-opt { display:flex; gap:9px; align-items:flex-start; padding:8px 10px; background:var(--panel2); border:1px solid var(--border); border-radius:8px; cursor:pointer; text-transform:none; letter-spacing:normal; font-size:13px; font-weight:400; color:var(--text); }
+.cap-steer-body .cap-opt:hover { border-color:var(--accent); }
+.cap-opt input[type=checkbox] { margin-top:2px; accent-color:var(--accent); flex-shrink:0; }
+.cap-opt-label { display:block; font-size:13px; font-weight:600; line-height:1.3; }
+.cap-opt-hint { display:block; font-size:11px; color:var(--muted); line-height:1.35; margin-top:1px; }
+.cap-opt input:checked ~ span .cap-opt-label { color:var(--accent); }
+@media (max-width: 620px) { .cap-opts-grid { grid-template-columns:1fr; } }
