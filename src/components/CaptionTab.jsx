@@ -255,11 +255,13 @@ export default function CaptionTab({ images, onOpenSettings, onSetImages }) {
     if (res && res.ok) {
       setEdits((prev) => {
         const cur = prev[imgPath] || {};
-        if (mode === 'ideogram' && res.data && !cur.ideogramData) {
-          return { ...prev, [imgPath]: { ...cur, ideogramData: clone(res.data) } };
+        // Always replace the working copy: recaptioning must show the caption
+        // that was just generated, not the one already open in the editor.
+        if (mode === 'ideogram' && res.data) {
+          return { ...prev, [imgPath]: { ...cur, ideogramData: clone(res.data), dirty: false } };
         }
-        if ((mode === 'plain') && res.text && cur.plainText == null) {
-          return { ...prev, [imgPath]: { ...cur, plainText: res.text } };
+        if (mode === 'plain' && res.text) {
+          return { ...prev, [imgPath]: { ...cur, plainText: res.text, dirty: false } };
         }
         return prev;
       });
