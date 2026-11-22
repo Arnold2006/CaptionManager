@@ -84,4 +84,27 @@ const TEXT_VERIFY_SCHEMA = {
   properties: { texts: { type: 'array', items: { type: 'string' } } }
 };
 
-module.exports = { GENERATION_SCHEMA, TEXT_VERIFY_SCHEMA };
+// Focused grounding pass. Boxes come back in the vision model's native
+// convention, [x_min, y_min, x_max, y_max] in 0-1000 per axis; bbox.js
+// transposes them to the Ideogram order.
+const GROUNDING_SCHEMA = {
+  type: 'object',
+  required: ['boxes'],
+  properties: {
+    boxes: {
+      type: 'array',
+      minItems: 1,
+      maxItems: 10,
+      items: {
+        type: 'object',
+        required: ['index', 'bbox'],
+        properties: {
+          index: { type: 'integer' },
+          bbox: { type: 'array', minItems: 4, maxItems: 4, items: { type: 'integer' } }
+        }
+      }
+    }
+  }
+};
+
+module.exports = { GENERATION_SCHEMA, TEXT_VERIFY_SCHEMA, GROUNDING_SCHEMA };

@@ -812,6 +812,16 @@ export default function CaptionTab({ images, onOpenSettings, onSetImages }) {
                     🏷 trigger
                   </span>
                 )}
+                {viewMode === 'ideogram' && res.ideogram?.boxes_total > 0 && (
+                  <span
+                    style={{ fontSize: 11, color: res.ideogram.boxes_grounded > 0 ? 'var(--accent2)' : 'var(--muted)' }}
+                    title={res.ideogram.boxes_grounded > 0
+                      ? `${res.ideogram.boxes_grounded}/${res.ideogram.boxes_total} boxes re-measured from the image (x/y transposed to Ideogram order); the rest kept the caption's own coordinates`
+                      : 'The box re-measurement pass returned nothing usable — boxes are the caption pass\'s own coordinates'}
+                  >
+                    📐 {res.ideogram.boxes_grounded}/{res.ideogram.boxes_total} measured
+                  </span>
+                )}
                 {viewMode === 'ideogram' && res.ideogram?.palettes_total > 0 && (
                   <span
                     style={{ fontSize: 11, color: (res.ideogram.palettes_sampled > 0) ? 'var(--accent2)' : 'var(--danger)' }}

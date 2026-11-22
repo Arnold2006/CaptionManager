@@ -8,7 +8,8 @@ const fs = require('fs');
 const path = require('path');
 const { spawn } = require('node:child_process');
 const { IDEOGRAM_SYSTEM_PROMPT, PLAIN_SYSTEM_PROMPT } = require('./captionPrompts');
-const { GENERATION_SCHEMA, TEXT_VERIFY_SCHEMA } = require('./captionSchema');
+const { GENERATION_SCHEMA, TEXT_VERIFY_SCHEMA, GROUNDING_SCHEMA } = require('./captionSchema');
+const { applyGrounding } = require('./bbox');
 const { normalizeCaption, serializeCaption } = require('./captionNormalize');
 const { validateCaption } = require('./captionValidate');
 const { buildExtrasInstruction, applyTriggerWord, applyPlainTrigger } = require('./captionOptions');
@@ -20,6 +21,7 @@ const {
   llamaReadyTimeoutMs, llamaReadyPollMs, captionMaxAttempts,
   captionFirstTemp, captionRetryTemp, captionTopP, captionMaxTokens,
   verifyMaxTokens, verifyTemp, plainMaxTokens,
+  captionGroundPass, groundMaxTokens, groundTemp, groundMaxDescChars,
 } = require('./config');
 
 const MAX_ATTEMPTS = captionMaxAttempts;
@@ -182,7 +184,11 @@ function aspectLine(dims) {
   if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return '';
   const ratio = w / h;
   const orient = ratio > 1.05 ? 'landscape' : ratio < 0.95 ? 'portrait' : 'square';
-  return ` The image is ${w} wide × ${h} tall (${orient}, aspect ratio ${ratio.toFixed(2)}). Bounding-box coordinates are normalized to this frame, 0–1000 on each axis independently: x=0 is the left edge and x=1000 the right edge, y=0 is the top edge and y=1000 the bottom edge.`;
+  // A square region spans the same pixels on both axes, so on this frame its
+  // x-span (0-1000 units) is y-span × h/w. Spell the number out: asking a small
+  // model to apply a formula mid-JSON does not work.
+  const squareX = Math.round((1000 * h) / w);
+  return ` The image is ${w} pixels wide × ${h} pixels tall (${orient}, aspect ratio ${ratio.toFixed(2)}). Bounding-box coordinates are normalized to this frame, 0–1000 on EACH axis independently (the frame is not a 1000×1000 square when the picture is not square): x=0 is the left edge and x=1000 the right edge, y=0 is the top edge and y=1000 the bottom edge. On this picture a region that looks square spans about ${squareX} x-units for every 1000 y-units.`;
 }
 
 // Ideogram mode renders a labeled 0-1000 grid on the vision input; tell the
@@ -365,6 +371,79 @@ async function verifyTextElements(url, imageBase64, caption) {
   return { checked: true, dropped: before - caption.compositional_deconstruction.elements.length };
 }
 
+// ---- bounding-box grounding pass ----
+// The caption pass writes boxes inline in a large JSON object, which the small
+// local model does poorly: it guesses round numbers and loses track of which
+// axis is which. This pass asks for the boxes on their own, in the vision
+// model's native grounding format ("bbox_2d": [x1, y1, x2, y2], 0-1000 per
+// axis, origin top-left), and bbox.js transposes them to Ideogram's
+// [y_min, x_min, y_max, x_max]. Best-effort: any failure keeps the caption's
+// own boxes.
+function shortenText(s, max) {
+  const t = String(s || '').replace(/\s+/g, ' ').trim();
+  return t.length > max ? t.slice(0, max - 1) + '…' : t;
+}
+
+function orientationOf(w, h) {
+  const ratio = w / h;
+  return ratio > 1.05 ? 'landscape' : ratio < 0.95 ? 'portrait' : 'square';
+}
+
+function buildGroundingMessages(imageBase64, elements, dims) {
+  const w = Number(dims?.width), h = Number(dims?.height);
+  const measured = Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0;
+  const frame = measured
+    ? `The image is ${w} pixels wide and ${h} pixels tall (${orientationOf(w, h)}, aspect ratio ${(w / h).toFixed(2)}). Both axes are normalized to 0-1000 separately, so the frame is not square on this picture: a region that looks square spans about ${Math.round((1000 * h) / w)} units on the x axis for every 1000 units on the y axis.`
+    : '';
+  const list = elements
+    .map((el, i) => {
+      const text = el.type === 'text' && el.text ? ` (rendered text: "${shortenText(el.text, 60)}")` : '';
+      return `${i + 1}. ${shortenText(el.desc, groundMaxDescChars)}${text}`;
+    })
+    .join('\n');
+  const text = [
+    'Locate each numbered object in this image and give it ONE tight bounding box that encloses only that object — its outer visible edges, no padding, no room for the neighbours.',
+    frame,
+    'Normalized coordinates, 0-1000 on each axis independently, origin at the TOP-LEFT: x=0 is the left edge and x=1000 the right edge; y=0 is the TOP edge and y=1000 the BOTTOM edge, so y grows DOWNWARD (an object low in the picture has large y values).',
+    'Order the four numbers as [x_min, y_min, x_max, y_max] with x_min < x_max and y_min < y_max. Read every edge off the labeled grid drawn on the picture; never describe or transcribe the grid itself.',
+    'Objects:',
+    list,
+    'Return exactly one box per object, keyed by its number. Reply with ONLY JSON: {"boxes":[{"index":1,"bbox":[x_min,y_min,x_max,y_max]}]}'
+  ].filter(Boolean).join('\n');
+  const base64Data = imageBase64.replace(/^data:[^;]+;base64,/, '');
+  return [
+    { role: 'system', content: 'You are an object-location model. You reply with JSON only.' },
+    {
+      role: 'user',
+      content: [
+        { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${base64Data}` } },
+        { type: 'text', text }
+      ]
+    }
+  ];
+}
+
+async function groundElementBoxes(url, imageBase64, caption, dims) {
+  const elements = caption?.compositional_deconstruction?.elements || [];
+  if (!captionGroundPass || elements.length === 0) return { applied: 0 };
+  let content;
+  try {
+    content = await chatCompletion(url, {
+      messages: buildGroundingMessages(imageBase64, elements, dims),
+      temperature: groundTemp, topP: captionTopP, maxTokens: groundMaxTokens,
+      jsonSchema: { name: 'element_boxes', schema: GROUNDING_SCHEMA }
+    });
+  } catch (err) {
+    console.log('[caption] grounding pass skipped:', String(err?.message || err).slice(0, 200));
+    return { applied: 0 };
+  }
+  const parsed = parseJsonLoose(content);
+  if (!parsed.ok || !Array.isArray(parsed.value?.boxes)) return { applied: 0 };
+  const result = applyGrounding(elements, parsed.value.boxes);
+  if (result.applied > 0) caption.compositional_deconstruction.elements = result.elements;
+  return result;
+}
+
 // ---- generators ----
 function parseJsonLoose(text) {
   try { return { ok: true, value: JSON.parse(text) }; } catch (_) {}
@@ -408,6 +487,10 @@ async function generateIdeogram(url, imageBase64, instructions, dims, promptOpti
       lastErrors = [...recheck.errors, 'create "text" elements ONLY for clearly legible on-image text; describe blurry/unreadable signs as "obj" elements instead'];
       continue;
     }
+    // Re-measure the boxes on their own, in the model's native grounding
+    // format, against the gridded image. Runs after the text pass so the
+    // 1-based indices match the elements that actually survived it.
+    const grounded = await groundElementBoxes(url, imageBase64, normalized.value, dims);
     return {
       ok: true, mode: 'ideogram',
       data: normalized.value,
@@ -418,6 +501,8 @@ async function generateIdeogram(url, imageBase64, instructions, dims, promptOpti
       trigger_used: triggerResult.used || false,
       trigger_applied: triggerResult.applied || false,
       text_verified: verifyResult.checked || false,
+      boxes_grounded: grounded.applied || 0,
+      boxes_total: normalized.value.compositional_deconstruction.elements.length,
     };
   }
   return { ok: false, mode: 'ideogram', error: `Could not produce a valid caption after ${MAX_ATTEMPTS} attempts.`, errors: lastErrors };

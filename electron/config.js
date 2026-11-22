@@ -24,6 +24,14 @@ module.exports = {
   captionMaxTokens: 4096,
   verifyMaxTokens: 512,
   verifyTemp: 0.2,
+
+  // Bounding-box grounding pass (Ideogram mode): one focused look per element
+  // in the vision model's native bbox format, then transposed to Ideogram's
+  // [y_min, x_min, y_max, x_max].
+  captionGroundPass: true,
+  groundMaxTokens: 512,
+  groundTemp: 0.2,
+  groundMaxDescChars: 220,
   plainMaxTokens: 512,
 
   // Palette sampling
