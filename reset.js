@@ -6,11 +6,11 @@ module.exports = {
     },
     {
       method: "fs.rm",
-      params: { path: "models/Huihui-Qwen3-VL-8B-Instruct-abliterated-Q4_K_M.gguf" }
+      params: { path: "models/Qwen3VL-8B-Instruct-Q4_K_M.gguf" }
     },
     {
       method: "fs.rm",
-      params: { path: "models/mmproj-F16.gguf" }
+      params: { path: "models/mmproj-Qwen3VL-8B-Instruct-F16.gguf" }
     },
     {
       method: "notify",

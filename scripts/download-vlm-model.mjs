@@ -1,7 +1,7 @@
 // Downloads the Qwen3-VL caption model (GGUF + mmproj) into models/.
-// Huihui Qwen3-VL-8B-Instruct (abliterated) GGUF + matching mmproj.
+// Official Qwen3-VL-8B-Instruct GGUF + Qwen's matching F16 mmproj.
 // mmproj is vision-tower-specific: do NOT mix it with another model's mmproj.
-// Quality ladder in the same repo: Q4_K_M (default, ~5GB) < Q5_K_M < Q6_K < Q8_0.
+// Quality ladder in the same repo: Q4_K_M (default, ~5GB) < Q8_0 < F16.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -11,15 +11,18 @@ import { pipeline } from 'node:stream/promises';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const modelsDir = path.join(__dirname, '..', 'models');
 
-const MODEL_FILE = 'Huihui-Qwen3-VL-8B-Instruct-abliterated-Q4_K_M.gguf';
-const MMPROJ_FILE = 'mmproj-F16.gguf';
-// Stale files from the previous JoyCaption model — keeping them wastes ~6GB
-// and risks the server pairing the wrong mmproj, so remove them on switch.
+const MODEL_FILE = 'Qwen3VL-8B-Instruct-Q4_K_M.gguf';
+const MMPROJ_FILE = 'mmproj-Qwen3VL-8B-Instruct-F16.gguf';
+// Stale files from previous models — keeping them wastes ~6GB and risks the
+// server pairing the wrong mmproj, so remove them on switch.
 const STALE_FILES = [
   'Llama-Joycaption-Beta-One-Hf-Llava-Q4_K.gguf',
   'llama-joycaption-beta-one-llava-mmproj-model-f16.gguf',
+  // Abliterated Qwen3-VL build replaced by the official one.
+  'Huihui-Qwen3-VL-8B-Instruct-abliterated-Q4_K_M.gguf',
+  'mmproj-F16.gguf',
 ];
-const REPO = 'noctrex/Huihui-Qwen3-VL-8B-Instruct-abliterated-GGUF';
+const REPO = 'Qwen/Qwen3-VL-8B-Instruct-GGUF';
 
 if (!fs.existsSync(modelsDir)) fs.mkdirSync(modelsDir, { recursive: true });
 for (const stale of STALE_FILES) {

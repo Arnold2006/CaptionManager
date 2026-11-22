@@ -36,7 +36,7 @@ Electron + React desktop app for preparing image datasets: crop workspace with b
 
 ## AI backend (llama.cpp, local)
 
-- Model: `Huihui-Qwen3-VL-8B-Instruct-abliterated-Q4_K_M.gguf` + `mmproj-F16.gguf` (spawned `llama-server`, persistent daemon, GPU layers on).
+- Model: official `Qwen3VL-8B-Instruct-Q4_K_M.gguf` + `mmproj-Qwen3VL-8B-Instruct-F16.gguf` (spawned `llama-server`, persistent daemon, GPU layers on).
 - **GGUFs are NOT bundled** with the portable exe — download at first launch.
 - **Settings modal** (⚙): point to a folder containing the models, or download them in-app with progress (~6 GB). Resolution order: chosen folder → bundled `models/` (dev) → app-data folder. Starting a caption with missing models opens Settings automatically.
 
