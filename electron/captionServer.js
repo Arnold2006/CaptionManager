@@ -182,7 +182,7 @@ function aspectLine(dims) {
   if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0) return '';
   const ratio = w / h;
   const orient = ratio > 1.05 ? 'landscape' : ratio < 0.95 ? 'portrait' : 'square';
-  return ` The original image is ${w} wide × ${h} tall (${orient}, aspect ratio ${ratio.toFixed(2)}). The vision input is square, so compensate for that distortion: coordinates are 0–1000 relative to the ORIGINAL image — x=1000 is its right edge however narrow, y=1000 its bottom however tall.`;
+  return ` The image is ${w} wide × ${h} tall (${orient}, aspect ratio ${ratio.toFixed(2)}). Bounding-box coordinates are normalized to this frame, 0–1000 on each axis independently: x=0 is the left edge and x=1000 the right edge, y=0 is the top edge and y=1000 the bottom edge.`;
 }
 
 function extractHldPrefix(instructions) {
