@@ -243,9 +243,9 @@ function applySteeringPostProcess(caption, instructions) {
   return { applied: true, prefix };
 }
 
-function buildIdeogramMessages(imageBase64, instructions, lastErrors, dims, promptOptions) {
+function buildIdeogramMessages(imageBase64, instructions, lastErrors, dims, promptOptions, triggerWord) {
   const steering = (instructions || '').trim();
-  const extras = buildExtrasInstruction(promptOptions);
+  const extras = buildExtrasInstruction(promptOptions, triggerWord);
   const sysPrompt = (steering
     ? IDEOGRAM_SYSTEM_PROMPT + '\n\nCRITICAL — User steering instructions (MUST follow exactly, takes precedence over defaults; applies to ALL fields, not just style):\n' + steering
     : IDEOGRAM_SYSTEM_PROMPT) + (extras ? '\n\n' + extras : '');
@@ -373,7 +373,7 @@ function parseJsonLoose(text) {
 async function generateIdeogram(url, imageBase64, instructions, dims, promptOptions, triggerWord) {
   let lastErrors = [];
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    const messages = buildIdeogramMessages(imageBase64, instructions, lastErrors, dims, promptOptions);
+    const messages = buildIdeogramMessages(imageBase64, instructions, lastErrors, dims, promptOptions, triggerWord);
     let text;
     try {
       text = await chatCompletion(url, {
@@ -415,7 +415,7 @@ async function generateIdeogram(url, imageBase64, instructions, dims, promptOpti
 
 async function generatePlain(url, imageBase64, instructions, dims, promptOptions, triggerWord) {
   const steering = (instructions || '').trim();
-  const extras = buildExtrasInstruction(promptOptions);
+  const extras = buildExtrasInstruction(promptOptions, triggerWord);
   const base = steering
     ? `Write a single detailed plain-text caption paragraph for this image.${aspectLine(dims)} Obey these user instructions exactly: ${steering}`
     : `Write a single detailed plain-text caption paragraph for this image.${aspectLine(dims)}`;

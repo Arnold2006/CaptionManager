@@ -1,68 +1,152 @@
 [
   {
-    "id": "cameraAngle",
-    "label": "Camera angle",
-    "hint": "Framing, viewpoint and shot type",
-    "clause": "the camera angle, framing and shot type (e.g. eye-level close-up, low angle, wide shot)"
-  },
-  {
-    "id": "ages",
-    "label": "Ages",
-    "hint": "Approximate age of each person",
-    "clause": "the approximate age of every person"
-  },
-  {
-    "id": "ethnicity",
-    "label": "Ethnicity",
-    "hint": "Apparent ethnicity and heritage",
-    "clause": "the apparent ethnicity and heritage of every person"
-  },
-  {
-    "id": "bodyType",
-    "label": "Body type",
-    "hint": "Build and body shape",
-    "clause": "the body type and build of every person"
-  },
-  {
-    "id": "hair",
-    "label": "Hair",
-    "hint": "Colour, length and style",
-    "clause": "hair colour, length and style"
-  },
-  {
-    "id": "clothing",
-    "label": "Clothing",
-    "hint": "Garments, colours and accessories",
-    "clause": "what everyone is wearing, including colours, materials and accessories"
-  },
-  {
-    "id": "expression",
-    "label": "Expression",
-    "hint": "Facial expression and emotion",
-    "clause": "facial expressions and emotions"
-  },
-  {
-    "id": "pose",
-    "label": "Pose",
-    "hint": "Posture, gesture and body language",
-    "clause": "body pose, posture, gesture and body language"
+    "id": "callByName",
+    "label": "Call the person by the trigger word",
+    "instruction": "If there is a person/character in the image you must refer to them as {name}.",
+    "default": false
   },
   {
     "id": "lighting",
     "label": "Lighting",
-    "hint": "Direction, quality and colour of light",
-    "clause": "the direction, quality and colour of the lighting"
+    "instruction": "Include information about lighting.",
+    "default": true
   },
   {
-    "id": "setting",
-    "label": "Setting",
-    "hint": "Location and background environment",
-    "clause": "the setting and background environment"
+    "id": "cameraAngle",
+    "label": "Camera angle",
+    "instruction": "Include information about camera angle.",
+    "default": true
   },
   {
-    "id": "mood",
-    "label": "Mood",
-    "hint": "Overall atmosphere and tone",
-    "clause": "the overall mood and atmosphere of the image"
+    "id": "shotType",
+    "label": "Shot type (close-up to wide)",
+    "instruction": "Mention whether the image depicts an extreme close-up, close-up, medium close-up, medium shot, cowboy shot, medium wide shot, wide shot, or extreme wide shot.",
+    "default": true
+  },
+  {
+    "id": "notResolution",
+    "label": "Not the resolution",
+    "instruction": "Do NOT mention the image's resolution.",
+    "default": true
+  },
+  {
+    "id": "noMetaPhrases",
+    "label": "No “This image shows…”",
+    "instruction": "Your response will be used by a text-to-image model, so avoid useless meta phrases like “This image shows…”, \"You are looking at...\", etc.",
+    "default": true
+  },
+  {
+    "id": "vantageHeight",
+    "label": "Vantage height",
+    "instruction": "Explicitly specify the vantage height (eye-level, low-angle worm’s-eye, bird’s-eye, drone, rooftop, etc.).",
+    "default": false
+  },
+  {
+    "id": "depthOfField",
+    "label": "Depth of field",
+    "instruction": "Specify the depth of field and whether the background is in focus or blurred.",
+    "default": false
+  },
+  {
+    "id": "lightSources",
+    "label": "Light sources",
+    "instruction": "If applicable, mention the likely use of artificial or natural lighting sources.",
+    "default": false
+  },
+  {
+    "id": "composition",
+    "label": "Composition",
+    "instruction": "Include information on the image's composition style, such as leading lines, rule of thirds, or symmetry.",
+    "default": false
+  },
+  {
+    "id": "orientation",
+    "label": "Orientation",
+    "instruction": "Identify the image orientation (portrait, landscape, or square) and aspect ratio if obvious.",
+    "default": false
+  },
+  {
+    "id": "cameraSettings",
+    "label": "Camera settings (photos)",
+    "instruction": "If it is a photo you MUST include information about what camera was likely used and details such as aperture, shutter speed, ISO, etc.",
+    "default": false
+  },
+  {
+    "id": "ages",
+    "label": "Ages",
+    "instruction": "Include information about the ages of any people/characters when applicable.",
+    "default": false
+  },
+  {
+    "id": "notFixedTraits",
+    "label": "Not fixed traits",
+    "instruction": "Do NOT include information about people/characters that cannot be changed (like ethnicity, gender, etc), but do still include changeable attributes (like hair style).",
+    "default": false
+  },
+  {
+    "id": "watermarkSay",
+    "label": "Watermark: say if there is one",
+    "instruction": "Include information about whether there is a watermark or not.",
+    "default": false
+  },
+  {
+    "id": "watermarkMention",
+    "label": "Watermark: mention it",
+    "instruction": "If there is a watermark, you must mention it.",
+    "default": false
+  },
+  {
+    "id": "jpegArtifacts",
+    "label": "JPEG artifacts",
+    "instruction": "Include information about whether there are JPEG artifacts or not.",
+    "default": false
+  },
+  {
+    "id": "aestheticQuality",
+    "label": "Aesthetic quality",
+    "instruction": "You MUST include information about the subjective aesthetic quality of the image from low to very high.",
+    "default": false
+  },
+  {
+    "id": "notText",
+    "label": "Not the text in it",
+    "instruction": "Do NOT mention any text that is in the image.",
+    "default": false
+  },
+  {
+    "id": "notMood",
+    "label": "Not the mood",
+    "instruction": "Do not mention the mood/feeling/etc of the image.",
+    "default": false
+  },
+  {
+    "id": "noAmbiguousLanguage",
+    "label": "No ambiguous language",
+    "instruction": "Do NOT use any ambiguous language.",
+    "default": false
+  },
+  {
+    "id": "onlyMainElements",
+    "label": "Only the main elements",
+    "instruction": "ONLY describe the most important elements of the image.",
+    "default": false
+  },
+  {
+    "id": "noArtistTitle",
+    "label": "No artist or title",
+    "instruction": "If it is a work of art, do not include the artist's name or the title of the work.",
+    "default": false
+  },
+  {
+    "id": "sfwRating",
+    "label": "SFW / suggestive / NSFW",
+    "instruction": "Include whether the image is sfw, suggestive, or nsfw.",
+    "default": false
+  },
+  {
+    "id": "keepItPG",
+    "label": "Keep it PG",
+    "instruction": "Do NOT include anything sexual; keep it PG.",
+    "default": false
   }
 ]

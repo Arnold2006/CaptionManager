@@ -21,14 +21,24 @@ function normalizeOptionIds(ids) {
 }
 
 // Returns the instruction block appended to the caption prompt, or '' when no
-// detail is selected.
-function buildExtrasInstruction(ids) {
+// option is selected. The {name} placeholder is filled from the trigger word;
+// that option is skipped when no trigger word is set.
+function buildExtrasInstruction(ids, triggerWord) {
   const list = normalizeOptionIds(ids);
   if (list.length === 0) return '';
-  const lines = list.map((id) => '- ' + BY_ID[id].clause);
-  return 'CAPTION DETAILS — the caption MUST explicitly cover every item below:\n' +
-    lines.join('\n') +
-    '\nWrite them as natural prose woven into the caption, never as a list of labels.';
+  const word = cleanTriggerWord(triggerWord);
+  const lines = [];
+  for (const id of list) {
+    const instruction = BY_ID[id].instruction;
+    if (instruction.includes('{name}')) {
+      if (!word) continue;
+      lines.push('- ' + instruction.replace(/\{name\}/g, () => word));
+    } else {
+      lines.push('- ' + instruction);
+    }
+  }
+  if (lines.length === 0) return '';
+  return 'PROMPT EXTRAS — follow every instruction below exactly:\n' + lines.join('\n');
 }
 
 function startsWithWord(text, word) {

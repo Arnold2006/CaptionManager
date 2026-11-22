@@ -27,19 +27,25 @@ const persistSteering = (val) => {
 };
 
 const EXTRAS_KEY = 'captionmanager_prompt_extras';
+const EXTRAS_VERSION = 2;
+const defaultOptions = () => Object.fromEntries(
+  CAPTION_OPTIONS.filter((o) => o.default).map((o) => [o.id, true])
+);
 const emptyExtras = () => ({ triggerWord: '', options: {} });
+const defaultExtras = () => ({ triggerWord: '', options: defaultOptions() });
 const loadExtras = () => {
   try {
     const v = JSON.parse(localStorage.getItem(EXTRAS_KEY) || 'null');
-    if (!v || typeof v !== 'object') return emptyExtras();
-    return {
-      triggerWord: typeof v.triggerWord === 'string' ? v.triggerWord : '',
-      options: v.options && typeof v.options === 'object' ? v.options : {},
-    };
-  } catch (e) { return emptyExtras(); }
+    if (!v || typeof v !== 'object') return defaultExtras();
+    const triggerWord = typeof v.triggerWord === 'string' ? v.triggerWord : '';
+    if (v.v !== EXTRAS_VERSION) return { triggerWord, options: defaultOptions() };
+    const options = {};
+    for (const o of CAPTION_OPTIONS) options[o.id] = !!v.options?.[o.id];
+    return { triggerWord, options };
+  } catch (e) { return defaultExtras(); }
 };
 const persistExtras = (val) => {
-  try { localStorage.setItem(EXTRAS_KEY, JSON.stringify(val)); } catch (e) {}
+  try { localStorage.setItem(EXTRAS_KEY, JSON.stringify({ v: EXTRAS_VERSION, ...val })); } catch (e) {}
 };
 
 export default function CaptionTab({ images, onOpenSettings, onSetImages }) {
@@ -164,10 +170,7 @@ export default function CaptionTab({ images, onOpenSettings, onSetImages }) {
     return next;
   });
   const toggleOption = (id) => setExtras((prev) => {
-    const options = { ...prev.options };
-    if (options[id]) delete options[id];
-    else options[id] = true;
-    const next = { ...prev, options };
+    const next = { ...prev, options: { ...prev.options, [id]: !prev.options?.[id] } };
     persistExtras(next);
     return next;
   });
@@ -708,7 +711,7 @@ export default function CaptionTab({ images, onOpenSettings, onSetImages }) {
           </button>
         </div>
         <div className="toolbar-group">
-          <button className={`btn ${extrasActive ? 'btn-primary' : ''}`} onClick={() => setExtrasOpen(true)} title="Trigger word and extra details the AI must include in every caption">
+          <button className={`btn ${extrasActive ? 'btn-primary' : ''}`} onClick={() => setExtrasOpen(true)} title="Trigger word and JoyCaption-style prompt extras">
             🧩 Prompt extras{extrasActive ? ' • on' : ''}
           </button>
         </div>
@@ -743,7 +746,7 @@ export default function CaptionTab({ images, onOpenSettings, onSetImages }) {
         )}
         {selectedOptions.length > 0 && (
           <span style={{ color: 'var(--accent)' }} title={CAPTION_OPTIONS.filter((o) => extras.options?.[o.id]).map((o) => o.label).join(', ')}>
-            🧩 {selectedOptions.length} extra detail{selectedOptions.length === 1 ? '' : 's'}
+            🧩 {selectedOptions.length} extra{selectedOptions.length === 1 ? '' : 's'}
           </span>
         )}
         {progress && <span>{progress.cancelled ? 'Cancelled' : progress.finished ? 'Done' : progress.current || ''}</span>}
@@ -888,21 +891,20 @@ export default function CaptionTab({ images, onOpenSettings, onSetImages }) {
               <button className="btn btn-ghost" style={{ padding: '3px 8px' }} onClick={() => setExtrasOpen(false)}>✕</button>
             </div>
             <div className="cap-steer-body cap-opts-body">
-              <p>Add details the AI must include in every caption it writes. The trigger word is prepended to the generated caption; the checked details go into the captioning prompt.</p>
+              <p>JoyCaption-style instructions added to every caption prompt. Hover an option to see exactly what the model is told. The trigger word is prepended to the caption and fills the {'{name}'} placeholder.</p>
               <div className="cap-field">
                 <label>Trigger word</label>
                 <input type="text" value={extras.triggerWord} placeholder="e.g. ohwx"
                   onChange={(e) => setTriggerWord(e.target.value)} />
-                <div className="cap-hint">Prepended once to the start of every generated caption (high_level_description in Ideogram mode, the paragraph in plain-text mode). Leave empty for none.</div>
+                <div className="cap-hint">Prepended once to the start of every generated caption (high_level_description in Ideogram mode, the paragraph in plain-text mode), and used by “Call the person by the trigger word”. Leave empty for none.</div>
               </div>
-              <label>Details to include</label>
+              <label>Prompt extras</label>
               <div className="cap-opts-grid">
                 {CAPTION_OPTIONS.map((opt) => (
-                  <label key={opt.id} className="cap-opt">
+                  <label key={opt.id} className="cap-opt" title={opt.instruction.split('{name}').join(triggerWord || '{name}')}>
                     <input type="checkbox" checked={!!extras.options?.[opt.id]} onChange={() => toggleOption(opt.id)} />
                     <span>
                       <span className="cap-opt-label">{opt.label}</span>
-                      <span className="cap-opt-hint">{opt.hint}</span>
                     </span>
                   </label>
                 ))}
@@ -912,7 +914,7 @@ export default function CaptionTab({ images, onOpenSettings, onSetImages }) {
             <div className="cap-steer-ftr">
               <span className="cap-steer-status">
                 {extrasActive
-                  ? [triggerWord ? `🏷 ${triggerWord}` : '', selectedOptions.length ? `🧩 ${selectedOptions.length} detail${selectedOptions.length === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ')
+                  ? [triggerWord ? `🏷 ${triggerWord}` : '', selectedOptions.length ? `🧩 ${selectedOptions.length} extra${selectedOptions.length === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ')
                   : 'No prompt extras'}
               </span>
               <button className="btn btn-ghost" onClick={clearExtras}>🗑 Clear</button>

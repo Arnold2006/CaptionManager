@@ -204,6 +204,5 @@ body { font-family: Inter, system-ui, Segoe UI, Roboto, sans-serif; background: 
 .cap-steer-body .cap-opt:hover { border-color:var(--accent); }
 .cap-opt input[type=checkbox] { margin-top:2px; accent-color:var(--accent); flex-shrink:0; }
 .cap-opt-label { display:block; font-size:13px; font-weight:600; line-height:1.3; }
-.cap-opt-hint { display:block; font-size:11px; color:var(--muted); line-height:1.35; margin-top:1px; }
 .cap-opt input:checked ~ span .cap-opt-label { color:var(--accent); }
 @media (max-width: 620px) { .cap-opts-grid { grid-template-columns:1fr; } }
